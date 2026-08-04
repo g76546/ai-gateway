@@ -137,7 +137,34 @@ export async function getProvider(env: Env, id: string): Promise<Provider | null
 }
 
 export async function setProviders(env: Env, providers: Provider[]): Promise<void> {
-  await kvPut(env, KV_KEYS.PROVIDERS, JSON.stringify(providers))
+  const cleaned = providers.map((p) => {
+    const seenKeys = new Set<string>()
+    const uniqueKeys = (p.apiKeys || [])
+      .filter((k) => {
+        const trimmed = (k.key || '').trim()
+        if (!trimmed || seenKeys.has(trimmed)) return false
+        seenKeys.add(trimmed)
+        return true
+      })
+      .map((k) => ({ key: k.key.trim(), enabled: k.enabled !== false }))
+
+    const seenModels = new Set<string>()
+    const uniqueModels = (p.models || []).filter((m) => {
+      const trimmed = (m.id || '').trim()
+      if (!trimmed || seenModels.has(trimmed)) return false
+      seenModels.add(trimmed)
+      return true
+    })
+
+    return {
+      ...p,
+      baseUrl: (p.baseUrl || '').trim().replace(/\/$/, ''),
+      apiKeys: uniqueKeys,
+      models: uniqueModels,
+    }
+  })
+
+  await kvPut(env, KV_KEYS.PROVIDERS, JSON.stringify(cleaned))
   await flushPendingWrites(env)
 }
 

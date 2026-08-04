@@ -245,7 +245,7 @@ ${renderSiteFooter(SITE_CONFIG.title)}
     var nav = document.getElementById('topbar-actions');
     if (nav && !nav.innerHTML.includes('admin')) {
       nav.innerHTML = '<a href="/admin" class="btn btn-p"><i class="fas fa-sliders-h" aria-hidden="true"></i>管理控制台</a>' +
-                      '<a href="/admin/logout" class="btn btn-gh" onclick="localStorage.removeItem(\'admin_token\')"><i class="fas fa-sign-out-alt" aria-hidden="true"></i>退出</a>';
+                      '<a href="/admin/logout" class="btn btn-gh" onclick="localStorage.removeItem(&quot;admin_token&quot;)"><i class="fas fa-sign-out-alt" aria-hidden="true"></i>退出</a>';
     }
   }
 
@@ -1083,11 +1083,18 @@ function createProv() {
     var url = document.getElementById('aurl').value.trim();
     var apiType = document.getElementById('afmt').value;
     var aki = document.querySelectorAll('#akeys .aki');
+    var seenKeys = new Set();
     var keys = Array.from(aki).map(function(inp) {
       var k = inp.value.trim();
+      if (!k) return null;
+      if (seenKeys.has(k)) {
+        if (inp.parentElement) inp.parentElement.remove();
+        return null;
+      }
+      seenKeys.add(k);
       var akeEl = inp.parentElement ? inp.parentElement.querySelector('.ake') : null;
       var en = akeEl ? akeEl.checked : true;
-      return k ? { key: k, enabled: en } : null;
+      return { key: k, enabled: en };
     }).filter(Boolean);
     var ami = document.querySelectorAll('#amodels .ami');
     var seenModels = new Set();
@@ -1138,13 +1145,20 @@ function getKeys(id) {
   const c = document.getElementById('keys-' + id)
   if (!c) return []
   const items = c.querySelectorAll('[data-kidx]')
+  const seen = new Set()
   return Array.from(items).map(item => {
     const idx = parseInt(item.dataset.kidx)
     const inp = document.getElementById('k-' + id + '-' + idx)
     const chk = document.getElementById('ken-' + id + '-' + idx)
     const k = inp ? inp.value.trim() : ''
+    if (!k) return null
+    if (seen.has(k)) {
+      item.remove()
+      return null
+    }
+    seen.add(k)
     const en = chk ? chk.checked : true
-    return k ? { key: k, enabled: en } : null
+    return { key: k, enabled: en }
   }).filter(Boolean)
 }
 
@@ -1152,6 +1166,17 @@ function addKeyRow(id) {
   const inp = document.getElementById('nk-' + id), k = inp.value.trim()
   if (!k) { toast('请输入 API Key', 'error'); return }
   const c = document.getElementById('keys-' + id)
+  
+  // Check duplicate key
+  const inputs = c.querySelectorAll('input[id^="k-"]')
+  for (const input of Array.from(inputs)) {
+    if (input.value.trim() === k) {
+      toast('API Key 已在配置中，已自动剔除重复项', 'warning')
+      inp.value = ''
+      return
+    }
+  }
+
   let maxIdx = -1
   c.querySelectorAll('[data-kidx]').forEach(item => {
     const kidx = parseInt(item.dataset.kidx || '-1', 10)

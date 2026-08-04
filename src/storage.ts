@@ -2,10 +2,16 @@ import { KV_KEYS, LOG_BATCH_SIZE, LOG_FLUSH_INTERVAL_MS } from './config'
 import type { Env, Provider, ProxyKey, RequestLog, Session } from './types'
 import { createLocalKV } from './localKv'
 
-const defaultKV = createLocalKV()
+let defaultKV: ReturnType<typeof createLocalKV> | null = null
 
 function getKV(env?: Env) {
-  return env?.KV || defaultKV
+  if (env?.KV) {
+    return env.KV
+  }
+  if (!defaultKV) {
+    defaultKV = createLocalKV()
+  }
+  return defaultKV
 }
 
 /**

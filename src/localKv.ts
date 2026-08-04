@@ -2,12 +2,33 @@ import fs from 'fs'
 import path from 'path'
 
 export function createLocalKV(filePath: string = './.data/kv.json') {
-  const dir = path.dirname(filePath)
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true })
+  const memoryStore = new Map<string, string>()
+  let useFs = false
+
+  try {
+    if (typeof fs !== 'undefined' && fs.existsSync && fs.mkdirSync) {
+      const dir = path.dirname(filePath)
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true })
+      }
+      useFs = true
+    }
+  } catch (e) {
+    // Safe downgrade to memory store
   }
 
   const loadData = (): Record<string, { value: string; expiresAt?: number }> => {
+    if (!useFs) {
+      const obj: Record<string, { value: string; expiresAt?: number }> = {}
+      for (const [key, valStr] of memoryStore.entries()) {
+        try {
+          obj[key] = JSON.parse(valStr)
+        } catch {
+          obj[key] = { value: valStr }
+        }
+      }
+      return obj
+    }
     try {
       if (fs.existsSync(filePath)) {
         return JSON.parse(fs.readFileSync(filePath, 'utf-8'))
@@ -19,6 +40,13 @@ export function createLocalKV(filePath: string = './.data/kv.json') {
   }
 
   const saveData = (data: Record<string, { value: string; expiresAt?: number }>) => {
+    if (!useFs) {
+      memoryStore.clear()
+      for (const [key, item] of Object.entries(data)) {
+        memoryStore.set(key, JSON.stringify(item))
+      }
+      return
+    }
     try {
       fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8')
     } catch (e) {

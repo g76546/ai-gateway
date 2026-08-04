@@ -1,5 +1,5 @@
 import { KV_KEYS, TIER_1_MAX_SLOTS } from './config'
-import { kvGet, kvPut, getProviders, getProvider, updateProvider } from './storage'
+import { kvGet, kvPut, getProviders, getProvider, updateProvider, flushPendingWrites } from './storage'
 import { testModelConnection } from './proxy'
 import { isOpenCodeProvider, resolveOpenCodeUrls, testOpenCodeModel } from './opencode'
 import { detectPermanentFailure } from './models'
@@ -26,6 +26,7 @@ export async function getTierStorage(env: Env): Promise<TierStorage | null> {
 export async function saveTierStorage(env: Env, data: TierStorage): Promise<void> {
   data.updatedAt = new Date().toISOString()
   await kvPut(env, KV_KEYS.TIER_DATA, JSON.stringify(data))
+  await flushPendingWrites(env)
 }
 
 /**

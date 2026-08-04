@@ -138,6 +138,7 @@ export async function getProvider(env: Env, id: string): Promise<Provider | null
 
 export async function setProviders(env: Env, providers: Provider[]): Promise<void> {
   await kvPut(env, KV_KEYS.PROVIDERS, JSON.stringify(providers))
+  await flushPendingWrites(env)
 }
 
 export async function addProvider(env: Env, provider: Provider): Promise<void> {
@@ -174,6 +175,7 @@ export async function createSession(env: Env, username: string, ttlSeconds: numb
   await kvPut(env, KV_KEYS.SESSION_PREFIX + sessionId, JSON.stringify(session), {
     expirationTtl: ttlSeconds,
   })
+  await flushPendingWrites(env)
   return sessionId
 }
 
@@ -190,6 +192,7 @@ export async function getSession(env: Env, sessionId: string): Promise<Session |
 
 export async function deleteSession(env: Env, sessionId: string): Promise<void> {
   await kvDelete(env, KV_KEYS.SESSION_PREFIX + sessionId)
+  await flushPendingWrites(env)
 }
 
 // ===== 转发 Key =====
@@ -201,6 +204,7 @@ export async function getProxyKeys(env: Env): Promise<ProxyKey[]> {
 
 export async function setProxyKeys(env: Env, keys: ProxyKey[]): Promise<void> {
   await kvPut(env, KV_KEYS.PROXY_KEYS, JSON.stringify(keys))
+  await flushPendingWrites(env)
 }
 
 export async function addProxyKey(env: Env, key: ProxyKey): Promise<void> {

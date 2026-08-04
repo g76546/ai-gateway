@@ -654,35 +654,35 @@ label, legend { color: var(--color-ink-2); font-size: var(--text-xs); font-weigh
     font-size: 1.2rem !important;
   }
 
-  /* Mobile-first row layout for model elements in Provider Details model lists:
-     Model ID/name takes the first line entirely, model info wraps to a new line */
+  /* Optimize to single compact row layout for inputs and buttons inside Provider Details lists */
   .provider-list .field-row {
     display: flex !important;
-    flex-wrap: wrap !important;
+    flex-wrap: nowrap !important;
     flex-direction: row !important;
     align-items: center !important;
     gap: 4px !important;
-    padding: 6px !important;
+    padding: 2px 4px !important;
     border: 1px solid var(--color-rule-2) !important;
     border-radius: var(--radius-control) !important;
     background: var(--color-paper-2) !important;
     margin-bottom: 6px !important;
   }
   .provider-list .field-row > input.fx1,
-  .provider-list .field-row > input[id^="mid-"] {
-    width: 100% !important;
-    min-width: 100% !important;
-    flex: 1 1 100% !important;
+  .provider-list .field-row > input[id^="mid-"],
+  .provider-list .field-row > input[id^="k-"] {
+    flex: 1 1 auto !important;
+    width: auto !important;
+    min-width: 0 !important;
     height: 2rem !important;
     font-size: 0.825rem !important;
-    margin-bottom: 2px !important;
+    margin-bottom: 0 !important;
   }
   .provider-list .field-row > select,
   .provider-list .field-row > .bd,
   .provider-list .field-row > span,
   .provider-list .field-row > .tg,
   .provider-list .field-row > .icon-btn {
-    flex: 0 1 auto !important;
+    flex: 0 0 auto !important;
     height: 1.75rem !important;
     min-height: auto !important;
     font-size: 0.75rem !important;

@@ -52,9 +52,9 @@ ${H('首页')}
       <span class="brand__name">${SITE_CONFIG.title}</span>
       <span class="brand__descriptor">API CONTROL PLANE</span>
     </a>
-    <nav class="topbar__actions" aria-label="主导航">
+    <nav class="topbar__actions" id="topbar-actions" aria-label="主导航">
       ${isLoggedIn
-        ? `<a href="/admin" class="btn btn-p"><i class="fas fa-sliders-h" aria-hidden="true"></i>管理控制台</a><a href="/admin/logout" class="btn btn-gh"><i class="fas fa-sign-out-alt" aria-hidden="true"></i>退出</a>`
+        ? `<a href="/admin" class="btn btn-p"><i class="fas fa-sliders-h" aria-hidden="true"></i>管理控制台</a><a href="/admin/logout" class="btn btn-gh" onclick="localStorage.removeItem('admin_token')"><i class="fas fa-sign-out-alt" aria-hidden="true"></i>退出</a>`
         : `<a href="/admin/login" class="btn btn-p"><i class="fas fa-sign-in-alt" aria-hidden="true"></i>管理员登录</a>`
       }
     </nav>
@@ -236,6 +236,19 @@ ${renderSiteFooter(SITE_CONFIG.title)}
 
 <script>
 (function () {
+  // 自动从 localStorage 恢复会话 Cookie 并同步导航按钮状态，防止 iframe 跨域 Cookie 丢失导致登录失效
+  var savedToken = localStorage.getItem('admin_token');
+  if (savedToken) {
+    if (!document.cookie.includes('session_id=')) {
+      document.cookie = "session_id=" + savedToken + "; path=/; max-age=86400; SameSite=None; Secure";
+    }
+    var nav = document.getElementById('topbar-actions');
+    if (nav && !nav.innerHTML.includes('admin')) {
+      nav.innerHTML = '<a href="/admin" class="btn btn-p"><i class="fas fa-sliders-h" aria-hidden="true"></i>管理控制台</a>' +
+                      '<a href="/admin/logout" class="btn btn-gh" onclick="localStorage.removeItem(\'admin_token\')"><i class="fas fa-sign-out-alt" aria-hidden="true"></i>退出</a>';
+    }
+  }
+
   var status = document.getElementById('copy-status')
   document.querySelectorAll('.copy-control').forEach(function (button) {
     button.addEventListener('click', async function () {
@@ -1138,7 +1151,13 @@ function getKeys(id) {
 function addKeyRow(id) {
   const inp = document.getElementById('nk-' + id), k = inp.value.trim()
   if (!k) { toast('请输入 API Key', 'error'); return }
-  const c = document.getElementById('keys-' + id), cnt = c.querySelectorAll('[data-kidx]').length
+  const c = document.getElementById('keys-' + id)
+  let maxIdx = -1
+  c.querySelectorAll('[data-kidx]').forEach(item => {
+    const kidx = parseInt(item.dataset.kidx || '-1', 10)
+    if (kidx > maxIdx) maxIdx = kidx
+  })
+  const cnt = maxIdx + 1
   const d = document.createElement('div')
   d.className = 'fc mb-3 field-row'
   d.dataset.kidx = cnt
@@ -1255,7 +1274,13 @@ function addMdl(id) {
     }
   }
 
-  const c = document.getElementById('ml-' + id), cnt = c.querySelectorAll('[data-idx]').length
+  const c = document.getElementById('ml-' + id)
+  let maxIdx = -1
+  c.querySelectorAll('[data-idx]').forEach(item => {
+    const idx = parseInt(item.dataset.idx || '-1', 10)
+    if (idx > maxIdx) maxIdx = idx
+  })
+  const cnt = maxIdx + 1
   const d = document.createElement('div')
   d.className = 'fc mb-3 field-row'
   d.dataset.idx = cnt

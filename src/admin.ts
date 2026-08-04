@@ -466,9 +466,8 @@ export async function handleRunProbe(c: Context<{ Bindings: Env }>) {
 
       let changed = false
       const updatedModels = await Promise.all(provider.models.map(async (model) => {
-        // 忽略已禁用、标记永久失效或仍在冷却期的模型
+        // 忽略已禁用、标记永久失效的模型（手动触发探测任务时，忽略冷却期以确保测试所有模型）
         if (!model.enabled || model.permanentlyDisabled) return model
-        if (model.cooldownUntil && Date.now() < model.cooldownUntil) return model
 
         testedCount++
         const apiKey = enabledKeys[0]?.key || ''

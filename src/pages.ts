@@ -486,7 +486,7 @@ ${H('管理')}
             <fieldset class="form-group"><legend>上游 API Keys</legend><div id="akeys"><div class="fc mb-4 field-row"><input type="text" placeholder="sk-xxx" class="fx1 aki" aria-label="上游 API Key"><label class="tg" title="启用 Key"><input type="checkbox" checked class="ake" aria-label="启用 Key"><span class="sl"></span></label><button class="icon-btn" onclick="copyRowVal(this)" title="复制 Key" aria-label="复制 Key"><i class="far fa-copy" aria-hidden="true"></i></button><button class="icon-btn" onclick="testNewAKey(this)" title="测试 Key" aria-label="测试 Key"><i class="fas fa-plug" aria-hidden="true"></i></button><button class="icon-btn" onclick="this.parentElement.remove()" title="移除 Key" aria-label="移除 Key"><i class="fas fa-times" aria-hidden="true"></i></button></div></div><button class="btn btn-s btn-xs" onclick="addAKeyRow()"><i class="fas fa-plus" aria-hidden="true"></i>添加 Key</button></fieldset>
             <aside id="amc" class="hd mdl-list-panel"><div class="panel-heading"><div><span class="panel-heading__mark"><i class="fas fa-cube" aria-hidden="true"></i></span><div><h3>可用模型</h3><p>点击“+”单条添加，或使用一键导入。</p></div></div><div class="fc" style="gap:var(--space-2xs);"><button class="btn btn-s btn-xs" onclick="importAllNewModels()" style="margin-right:8px;"><i class="fas fa-file-import" aria-hidden="true"></i> 一键导入</button><button class="icon-btn" type="button" onclick="hideMdlPanel('amc')" title="关闭可用模型" aria-label="关闭可用模型"><i class="fas fa-times" aria-hidden="true"></i></button></div></div><div id="amcl"></div></aside>
             <fieldset class="form-group"><legend>模型 ID</legend><div id="amodels"><div class="fc mb-4 field-row"><input type="text" placeholder="deepseek-chat" class="fx1 ami" aria-label="模型 ID"><label class="tg" title="启用模型"><input type="checkbox" checked class="ame" aria-label="启用模型"><span class="sl"></span></label><button class="icon-btn" onclick="copyRowVal(this)" title="复制模型 ID" aria-label="复制模型 ID"><i class="far fa-copy" aria-hidden="true"></i></button><button class="icon-btn" onclick="testNewMdl(this)" title="测试模型" aria-label="测试模型"><i class="fas fa-plug" aria-hidden="true"></i></button><button class="icon-btn" onclick="this.parentElement.remove()" title="移除模型" aria-label="移除模型"><i class="fas fa-times" aria-hidden="true"></i></button></div></div><div class="fc mt-1 field-row"><button class="btn btn-s btn-xs" onclick="addMdlRow()"><i class="fas fa-plus" aria-hidden="true"></i>添加模型</button><button class="btn btn-s btn-xs btn-d" onclick="clearAllNewModels()" style="margin-left:8px;"><i class="fas fa-trash" aria-hidden="true"></i>一键删除所有模型</button></div></fieldset>
-            <div class="panel-actions"><label class="switch-label"><span>创建后立即启用</span><span class="tg"><input type="checkbox" checked id="aen"><span class="sl"></span></span></label><div><button class="btn btn-s" onclick="hideAdd()">取消</button><button class="btn btn-p" onclick="createProv()"><i class="fas fa-check" aria-hidden="true"></i>创建提供商</button></div></div>
+            <div class="panel-actions"><label class="switch-label"><span>创建后立即启用</span><span class="tg"><input type="checkbox" checked id="aen"><span class="sl"></span></span></label><div><button class="btn btn-s" onclick="hideAdd()">取消</button><button class="btn btn-p" onclick="createProv()"><i class="fas fa-plus" aria-hidden="true"></i>暂存并添加</button></div></div>
             <div id="atestR" class="mt-1" aria-live="polite"></div>
           </div>
         </div>
@@ -499,13 +499,13 @@ ${H('管理')}
               <div class="fc fx-s0" onclick="event.stopPropagation()"><label class="tg"><input type="checkbox" ${p.enabled?'checked':''} id="en-${escapePageHtml(p.id)}" onchange="togglePb('${p.id}',this.checked)" aria-label="启用 ${escapePageHtml(p.name)}"><span class="sl"></span></label><span class="bd ${p.enabled?'bd-on':'bd-off'}">${p.enabled?'已启用':'未启用'}</span></div>
             </div>
             <div class="pd" id="dt-${escapePageHtml(p.id)}">
-              <div class="detail-heading"><div><h3>编辑 ${escapePageHtml(p.name)}</h3><p>保存后，新配置会用于后续转发请求。</p></div><span class="protocol-chip">${(p.apiType||'openai')==='anthropic'?'ANTHROPIC':'OPENAI'}</span></div>
+              <div class="detail-heading"><div><h3>编辑 ${escapePageHtml(p.name)}</h3><p>修改暂存在内存中，点击顶部【统一保存】落盘写入 KV。</p></div><span class="protocol-chip">${(p.apiType||'openai')==='anthropic'?'ANTHROPIC':'OPENAI'}</span></div>
               <div class="fr"><div class="fg"><label>名称</label><input type="text" id="nm-${escapePageHtml(p.id)}" value="${escapePageHtml(p.name)}"></div><div class="fg"><label>ID</label><input type="text" value="${escapePageHtml(p.id)}" disabled></div></div>
               <div class="fg"><label>API 地址</label><input type="url" id="url-${escapePageHtml(p.id)}" value="${escapePageHtml(p.baseUrl)}"></div>
               <div class="fg"><label>API 格式</label><select id="at-${escapePageHtml(p.id)}" class="select-sm"><option value="openai" ${(p.apiType||'openai')==='openai'?'selected':''}>OpenAI 兼容</option><option value="anthropic" ${p.apiType==='anthropic'?'selected':''}>Anthropic 兼容</option></select></div>
               <fieldset class="form-group"><legend>上游 API Keys</legend><div id="keys-${escapePageHtml(p.id)}">${p.apiKeys.map((k, ki)=>`<div class="fc mb-3 field-row" data-kidx="${ki}"><input type="text" value="${escapePageHtml(k.key)}" class="fx1" id="k-${escapePageHtml(p.id)}-${ki}" placeholder="API Key" aria-label="API Key"><label class="tg"><input type="checkbox" ${k.enabled?'checked':''} id="ken-${escapePageHtml(p.id)}-${ki}" aria-label="启用 Key"><span class="sl"></span></label><button class="icon-btn" onclick="copyRowVal(this)" title="复制 Key" aria-label="复制 Key"><i class="far fa-copy" aria-hidden="true"></i></button><button class="icon-btn" onclick="testKeyRow('${p.id}',${ki})" title="测试 Key" aria-label="测试 Key"><i class="fas fa-plug" aria-hidden="true"></i></button><button class="icon-btn" onclick="rmKeyRow('${p.id}',${ki})" title="移除 Key" aria-label="移除 Key"><i class="fas fa-times" aria-hidden="true"></i></button></div>`).join('')}</div><div class="fc mt-1 field-row"><input type="text" id="nk-${escapePageHtml(p.id)}" placeholder="新的 API Key" class="fx1"><button class="btn btn-s btn-xs" onclick="addKeyRow('${p.id}')"><i class="fas fa-plus" aria-hidden="true"></i>添加</button></div></fieldset>
               <fieldset class="form-group"><legend>模型</legend><div id="ml-${escapePageHtml(p.id)}">${p.models.map((m,mi)=>`<div class="fc mb-3 field-row" data-idx="${mi}"><input type="text" value="${escapePageHtml(m.id)}" class="fx1" id="mid-${escapePageHtml(p.id)}-${mi}" placeholder="模型 ID"><label class="tg"><input type="checkbox" ${m.enabled?'checked':''} id="men-${escapePageHtml(p.id)}-${mi}" aria-label="启用模型"><span class="sl"></span></label><button class="icon-btn" onclick="copyRowVal(this)" title="复制模型 ID" aria-label="复制模型 ID"><i class="far fa-copy" aria-hidden="true"></i></button><button class="icon-btn" onclick="testMdlBtn(this)" data-pid="${escapePageHtml(p.id)}" data-mid="${escapePageHtml(m.id)}" data-idx="${mi}" title="测试模型" aria-label="测试模型"><i class="fas fa-plug" aria-hidden="true"></i></button><button class="icon-btn" onclick="rmMdl('${p.id}',${mi})" title="移除模型" aria-label="移除模型"><i class="fas fa-times" aria-hidden="true"></i></button></div>`).join('')}</div><div class="fc mt-1 field-row"><input type="text" id="nmid-${escapePageHtml(p.id)}" placeholder="新的模型 ID" class="fx1"><button class="btn btn-s btn-xs" onclick="addMdl('${p.id}')"><i class="fas fa-plus" aria-hidden="true"></i>添加</button><button class="btn btn-s btn-xs btn-d" onclick="clearAllEditModels('${p.id}')" style="margin-left:8px;"><i class="fas fa-trash" aria-hidden="true"></i>一键删除模型</button></div></fieldset>
-              <div class="detail-actions"><div id="tr-${escapePageHtml(p.id)}" aria-live="polite"></div><div>${p.id === 'opencode' ? `<button class="btn btn-s" onclick="fetchEditModels('${escapePageHtml(p.id)}',this)"><i class="fas fa-download" aria-hidden="true"></i>获取模型</button>` : ''}<button class="btn btn-d" onclick="del('${p.id}')"><i class="fas fa-trash" aria-hidden="true"></i>删除</button><button class="btn btn-p" onclick="save('${p.id}')"><i class="fas fa-save" aria-hidden="true"></i>保存更改</button></div></div>
+              <div class="detail-actions"><div id="tr-${escapePageHtml(p.id)}" aria-live="polite"></div><div>${p.id === 'opencode' ? `<button class="btn btn-s" onclick="fetchEditModels('${escapePageHtml(p.id)}',this)"><i class="fas fa-download" aria-hidden="true"></i>获取模型</button>` : ''}<button class="btn btn-d" onclick="del('${p.id}')"><i class="fas fa-trash" aria-hidden="true"></i>删除</button><button class="btn btn-p" onclick="save('${p.id}')"><i class="fas fa-save" aria-hidden="true"></i>暂存更改</button></div></div>
             </div>
           </article>`).join('') : `<div class="empty-state"><i class="fas fa-server" aria-hidden="true"></i><h3>还没有提供商</h3><p>添加第一个上游提供商，配置 API 地址、Key 和模型。</p><button class="btn btn-p" onclick="showAdd()">添加提供商</button></div>`}
         </div>
@@ -838,8 +838,39 @@ function tog(id) {
   }
 }
 
-function showAdd() { document.getElementById('af').classList.remove('hd') }
+function showAdd() {
+  resetAddForm();
+  document.getElementById('af').classList.remove('hd');
+}
 function hideAdd() { document.getElementById('af').classList.add('hd'); document.getElementById('amc').classList.add('hd') }
+
+function resetAddForm() {
+  const anm = document.getElementById('anm');
+  const aid = document.getElementById('aid');
+  const aurl = document.getElementById('aurl');
+  const afmt = document.getElementById('afmt');
+  const akeys = document.getElementById('akeys');
+  const amodels = document.getElementById('amodels');
+  const aen = document.getElementById('aen');
+  const atestR = document.getElementById('atestR');
+
+  if (anm) anm.value = '';
+  if (aid) aid.value = '';
+  if (aurl) aurl.value = '';
+  if (afmt) afmt.value = 'openai';
+  if (aen) aen.checked = true;
+  if (atestR) atestR.innerHTML = '';
+
+  if (akeys) {
+    akeys.innerHTML = '<div class="fc mb-4 field-row"><input type="text" placeholder="sk-xxx" class="fx1 aki" aria-label="上游 API Key"><label class="tg" title="启用 Key"><input type="checkbox" checked class="ake" aria-label="启用 Key"><span class="sl"></span></label><button class="icon-btn" onclick="copyRowVal(this)" title="复制 Key" aria-label="复制 Key"><i class="far fa-copy" aria-hidden="true"></i></button><button class="icon-btn" onclick="testNewAKey(this)" title="测试 Key" aria-label="测试 Key"><i class="fas fa-plug" aria-hidden="true"></i></button><button class="icon-btn" onclick="this.parentElement.remove()" title="移除 Key" aria-label="移除 Key"><i class="fas fa-times" aria-hidden="true"></i></button></div>';
+  }
+  if (amodels) {
+    amodels.innerHTML = '<div class="fc mb-4 field-row"><input type="text" placeholder="deepseek-chat" class="fx1 ami" aria-label="模型 ID"><label class="tg" title="启用模型"><input type="checkbox" checked class="ame" aria-label="启用模型"><span class="sl"></span></label><button class="icon-btn" onclick="copyRowVal(this)" title="复制模型 ID" aria-label="复制模型 ID"><i class="far fa-copy" aria-hidden="true"></i></button><button class="icon-btn" onclick="testNewMdl(this)" title="测试模型" aria-label="测试模型"><i class="fas fa-plug" aria-hidden="true"></i></button><button class="icon-btn" onclick="this.parentElement.remove()" title="移除模型" aria-label="移除模型"><i class="fas fa-times" aria-hidden="true"></i></button></div>';
+  }
+  const amcl = document.getElementById('amcl');
+  if (amcl) amcl.innerHTML = '';
+  hideMdlPanel('amc');
+}
 
 document.getElementById('aid').addEventListener('input', function() {
   if (this.value.trim() === 'opencode') {
@@ -1082,6 +1113,7 @@ function createProv() {
 
     markDirty(true);
     hideAdd();
+    resetAddForm();
     renderProviderList();
     toast('提供商已添加至暂存，请点击【统一保存】写入 KV', 'success');
   } finally {
@@ -1483,7 +1515,7 @@ function renderProviderList() {
         '<div class="fg"><label>API 格式</label><select id="at-' + pId + '" class="select-sm" onchange="markDirty(true)"><option value="openai" ' + (!isAnthropic ? 'selected' : '') + '>OpenAI 兼容</option><option value="anthropic" ' + (isAnthropic ? 'selected' : '') + '>Anthropic 兼容</option></select></div>' +
         '<fieldset class="form-group"><legend>上游 API Keys</legend><div id="keys-' + pId + '">' + keysHtml + '</div><div class="fc mt-1 field-row"><input type="text" id="nk-' + pId + '" placeholder="新的 API Key" class="fx1"><button class="btn btn-s btn-xs" onclick="addKeyRowBtn(this)" data-pid="' + pId + '"><i class="fas fa-plus" aria-hidden="true"></i>添加</button></div></fieldset>' +
         '<fieldset class="form-group"><legend>模型</legend>' + providerModelActions + '<div id="ml-' + pId + '">' + modelsHtml + '</div><div class="fc mt-1 field-row"><input type="text" id="nmid-' + pId + '" placeholder="新的模型 ID" class="fx1"><button class="btn btn-s btn-xs" onclick="addMdlBtn(this)" data-pid="' + pId + '"><i class="fas fa-plus" aria-hidden="true"></i>添加</button></div></fieldset>' +
-        '<div class="detail-actions"><div id="tr-' + pId + '" aria-live="polite"></div><div>' + opencodeBtn + '<button class="btn btn-d" onclick="delBtn(this)" data-pid="' + pId + '"><i class="fas fa-trash" aria-hidden="true"></i>删除</button><button class="btn btn-p" onclick="saveBtn(this)" data-pid="' + pId + '"><i class="fas fa-check" aria-hidden="true"></i>更新暂存</button></div></div>' +
+        '<div class="detail-actions"><div id="tr-' + pId + '" aria-live="polite"></div><div>' + opencodeBtn + '<button class="btn btn-d" onclick="delBtn(this)" data-pid="' + pId + '"><i class="fas fa-trash" aria-hidden="true"></i>删除</button><button class="btn btn-p" onclick="saveBtn(this)" data-pid="' + pId + '"><i class="fas fa-save" aria-hidden="true"></i>暂存更改</button></div></div>' +
       '</div>' +
     '</article>';
   }).join('');

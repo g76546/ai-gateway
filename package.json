@@ -1,0 +1,33 @@
+{
+  "name": "ai-gateway",
+  "version": "1.0.0",
+  "description": "Cloudflare Workers AI API Gateway",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "tsx server.ts",
+    "start": "tsx server.ts",
+    "build": "tsc --noEmit",
+    "lint": "tsc --noEmit",
+    "deploy": "wrangler deploy"
+  },
+  "keywords": [
+    "cloudflare",
+    "workers",
+    "ai",
+    "proxy",
+    "api-gateway"
+  ],
+  "license": "Apache 2.0",
+  "dependencies": {
+    "@hono/node-server": "^2.1.0",
+    "@hono/vite-dev-server": "^0.26.1",
+    "hono": "^4.12.27"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260702.1",
+    "@types/node": "^26.1.2",
+    "tsx": "^4.23.5",
+    "typescript": "^6.0.3",
+    "wrangler": "^4.107.0"
+  }
+}

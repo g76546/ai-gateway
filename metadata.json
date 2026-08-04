@@ -1,0 +1,6 @@
+{
+  "name": "AI Gateway",
+  "description": "Cloudflare Workers AI API Gateway imported from yutian81/ai-gateway",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

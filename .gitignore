@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.dev.vars
+*.local
+.wrangler/
+worker-configuration.d.ts
+.zcode/
+docs/

@@ -1,0 +1,131 @@
+export interface Model {
+  id: string
+  enabled: boolean
+  category?: '文本' | '绘图' | '多模态' | '其他' | string
+  failureCount?: number
+  cooldownUntil?: number | null
+  permanentlyDisabled?: boolean
+  disabledReason?: string | null
+}
+
+export interface ApiKeyEntry {
+  key: string
+  enabled: boolean
+}
+
+export interface Provider {
+  id: string
+  name: string
+  baseUrl: string
+  apiType?: 'openai' | 'anthropic'
+  apiKeys: ApiKeyEntry[]
+  models: Model[]
+  enabled: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ProxyKey {
+  id: string
+  key: string
+  name: string
+  enabled: boolean
+  createdAt: string
+  expiresAt?: string | null
+}
+
+export interface Session {
+  username: string
+  expiresAt: number
+}
+
+export interface ProxyRequestBody {
+  model?: string
+  messages?: Array<{ role: string; content: string }>
+  [key: string]: unknown
+}
+
+export interface TestModelRequest {
+  modelId: string
+}
+
+export interface CreateProviderRequest {
+  id: string
+  name: string
+  baseUrl: string
+  apiType?: 'openai' | 'anthropic'
+  apiKeys?: Array<{ key: string; enabled: boolean }>
+  models?: Array<{ id: string; enabled: boolean }> | string[]
+  enabled?: boolean
+}
+
+export interface UpdateProviderRequest {
+  name?: string
+  baseUrl?: string
+  apiType?: 'openai' | 'anthropic'
+  apiKeys?: Array<{ key: string; enabled: boolean }>
+  models?: Array<{ id: string; enabled: boolean }> | string[]
+  enabled?: boolean
+}
+
+export interface CreateProxyKeyRequest {
+  name?: string
+  expiresIn?: string // '30d' | '90d' | '180d' | '1y' | 'forever'
+}
+
+export interface RequestLog {
+  id: string
+  time: string
+  model: string
+  latency: number
+  status: number
+  error?: string | null
+}
+
+export interface TierModelRef {
+  providerId: string
+  modelId: string
+  fullId: string
+  addedAt: number
+}
+
+export interface ProbeMetric {
+  latency: number
+  lastTestedAt: number
+  success: boolean
+  statusCode?: number
+  error?: string
+}
+
+export interface BusinessMetric {
+  avgLatency: number
+  totalRequests: number
+  successCount: number
+  failureCount: number
+  lastUsedAt: number
+}
+
+export interface TierStorage {
+  tier1: TierModelRef[]
+  tier2: TierModelRef[]
+  probeStats: Record<string, ProbeMetric>
+  businessStats: Record<string, BusinessMetric>
+  updatedAt: string
+  lastProbeDate?: string
+  lastCursorProviderId?: string
+}
+
+export interface ApiResponse<T = unknown> {
+  success: boolean
+  data?: T
+  message?: string
+}
+
+export interface Env {
+  KV: KVNamespace
+  ADMIN_USERNAME?: string
+  ADMIN_PASSWORD?: string
+  OPENCODE_MIRRORS_URL?: string
+  MODE?: string
+  DEBUG?: boolean | string
+}

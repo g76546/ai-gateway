@@ -46,7 +46,7 @@ export async function getRequestTimeout(env: Env): Promise<number> {
 }
 
 export async function setRequestTimeout(env: Env, timeoutSec: number): Promise<void> {
-  const sec = Math.max(5, Math.min(180, Math.floor(timeoutSec)))
+  const sec = Math.max(5, Math.min(300, Math.floor(timeoutSec)))
   cachedRequestTimeout = sec
   await getKV(env).put(KV_KEYS.REQUEST_TIMEOUT, String(sec))
 }

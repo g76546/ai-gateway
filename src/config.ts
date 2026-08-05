@@ -29,7 +29,7 @@ export const LOG_FLUSH_INTERVAL_MS = 30000
 
 export const TIER_1_MAX_SLOTS = 9
 
-export const DEFAULT_REQUEST_TIMEOUT_SEC = 25
+export const DEFAULT_REQUEST_TIMEOUT_SEC = 120
 
 export const KV_KEYS = {
   PROVIDERS: 'providers',

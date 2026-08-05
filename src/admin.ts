@@ -441,8 +441,8 @@ export async function handleToggleDebugMode(c: Context<{ Bindings: Env }>) {
 }
 
 export async function handleSetTimeout(c: Context<{ Bindings: Env }>) {
-  const body = await c.req.json<{ timeoutSec: number }>().catch(() => ({ timeoutSec: 25 }))
-  const sec = Math.max(5, Math.min(180, Number(body.timeoutSec) || 25))
+  const body = await c.req.json<{ timeoutSec: number }>().catch(() => ({ timeoutSec: 120 }))
+  const sec = Math.max(5, Math.min(300, Number(body.timeoutSec) || 120))
   await setRequestTimeout(c.env, sec)
   return c.json<ApiResponse>({
     success: true,

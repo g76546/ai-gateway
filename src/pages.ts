@@ -539,7 +539,7 @@ ${H('管理')}
           <div class="admin-toolbar">
             <div class="admin-tool-item" title="代理请求单次超时限制（单位：秒）">
               <span class="admin-tool-label">超时(秒):</span>
-              <input type="number" id="request-timeout-input" value="${requestTimeout}" min="5" max="180" class="admin-tool-input">
+              <input type="number" id="request-timeout-input" value="${requestTimeout}" min="5" max="300" class="admin-tool-input">
               <button class="btn btn-s btn-xs" onclick="saveRequestTimeout()">保存</button>
             </div>
             <label class="admin-tool-item switch-label" style="cursor:pointer;" title="调试模式开启：每条日志实时写入 KV 并前端实时刷新">
@@ -1735,8 +1735,8 @@ async function saveRequestTimeout() {
   var input = document.getElementById('request-timeout-input');
   if (!input) return;
   var val = parseInt(input.value, 10);
-  if (isNaN(val) || val < 5 || val > 180) {
-    toast('超时时间必须在 5 - 180 秒之间', 'error');
+  if (isNaN(val) || val < 5 || val > 300) {
+    toast('超时时间必须在 5 - 300 秒之间', 'error');
     return;
   }
   try {

@@ -1,10 +1,10 @@
 import { Context } from 'hono'
-import { getProvider, getProviders, updateProvider, kvGet, kvPut, kvDelete, addRequestLog } from './storage'
+import { getProvider, getProviders, updateProvider, kvGet, kvPut, kvDelete, addRequestLog, getDebugMode } from './storage'
 import { KV_KEYS, KEY_HEALTH_COOLDOWN_MS, KEY_HEALTH_MAX_FAILURES } from './config'
 import type { Env, ProxyRequestBody } from './types'
 import { isOpenCodeProvider, proxyOpenCodeRequest, resolveOpenCodeUrls } from './opencode'
 import { detectPermanentFailure } from './models'
-import { selectAutoModel, recordBusinessLatency } from './tiers'
+import { selectAutoModel, recordBusinessLatency, getTierStorage, backfillTier1FromTier2 } from './tiers'
 
 async function recordModelFailure(env: Env, providerId: string, modelId: string, status: number, errorMsg: string) {
   const provider = await getProvider(env, providerId)
@@ -44,6 +44,28 @@ async function recordModelFailure(env: Env, providerId: string, modelId: string,
 
   if (updated) {
     await updateProvider(env, providerId, { models: updatedModels })
+  }
+
+  // 调试模式下：如果当前模型在第一梯队中且出现异常，实时踢出第一梯队并触发第二梯队自动补位
+  const debugMode = await getDebugMode(env)
+  if (debugMode) {
+    const fullId = `${providerId}/${modelId}`
+    let storage = await getTierStorage(env)
+    if (storage && storage.tier1.some((m) => m.fullId === fullId)) {
+      console.log(`[proxy] [调试模式] 第一梯队模型 ${fullId} 调用异常(${status})，立即实时剔除并补充备用模型`)
+      storage.tier1 = storage.tier1.filter((m) => m.fullId !== fullId)
+      const ref = { providerId, modelId, fullId, addedAt: Date.now() }
+      if (!storage.tier2.some((m) => m.fullId === fullId)) {
+        storage.tier2.push(ref)
+      }
+      storage.probeStats[fullId] = {
+        success: false,
+        latency: 0,
+        lastTestedAt: Date.now(),
+        error: `HTTP ${status}: ${errorMsg}`,
+      }
+      await backfillTier1FromTier2(env, storage)
+    }
   }
 }
 

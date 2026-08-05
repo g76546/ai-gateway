@@ -1,5 +1,5 @@
 import { KV_KEYS, TIER_1_MAX_SLOTS } from './config'
-import { kvGet, kvPut, getProviders, getProvider, updateProvider, flushPendingWrites } from './storage'
+import { kvGet, kvPut, getProviders, getProvider, updateProvider, flushPendingWrites, getDebugMode } from './storage'
 import { testModelConnection } from './proxy'
 import { isOpenCodeProvider, resolveOpenCodeUrls, testOpenCodeModel } from './opencode'
 import { detectPermanentFailure } from './models'
@@ -630,6 +630,17 @@ export async function recordBusinessLatency(
 
   storage.businessStats[fullId] = bStat
 
+  const debugMode = await getDebugMode(env)
+  if (debugMode) {
+    // 调试模式：将最新请求延迟与结果实时同步更新至 probeStats，方便前端直接展示最新探测/调用延迟
+    storage.probeStats[fullId] = {
+      success,
+      latency: Math.round(latency),
+      lastTestedAt: now,
+      error: success ? undefined : '调用异常/失败',
+    }
+  }
+
   // 检查该模型是否在第一梯队中
   const isInTier1 = storage.tier1.some((m) => m.fullId === fullId)
   if (!isInTier1) {
@@ -712,6 +723,10 @@ export async function recordBusinessLatency(
     // 触发空位海选补位
     storage = await backfillTier1FromTier2(env, storage)
   } else {
-    await saveTierStorage(env, storage)
+    if (debugMode && storage.tier1.length < TIER_1_MAX_SLOTS) {
+      storage = await backfillTier1FromTier2(env, storage)
+    } else {
+      await saveTierStorage(env, storage)
+    }
   }
 }

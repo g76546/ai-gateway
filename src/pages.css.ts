@@ -316,7 +316,6 @@ label, legend { color: var(--color-ink-2); font-size: var(--text-xs); font-weigh
 .gp, .provider-list, .key-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-xs); }
 @media (min-width: 768px) {
   .provider-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-sm); align-items: start; }
-  .provider-list .pi.open, .provider-list .pi:has(.pd.open) { grid-column: 1 / -1; }
 }
 .pi, .ki { min-width: 0; border: .0625rem solid var(--color-rule); border-radius: var(--radius-control); background: var(--color-paper); }
 .ps { min-height: 4.75rem; padding: var(--space-xs); display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); cursor: pointer; }

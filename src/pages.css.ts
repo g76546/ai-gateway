@@ -483,6 +483,148 @@ label, legend { color: var(--color-ink-2); font-size: var(--text-xs); font-weigh
   .admin-heading__actions .btn { flex: 1; }
 }
 
+/* Desktop Compact Optimization & Single-Line Model Rows */
+.admin-page {
+  --control-h: 2.125rem;
+  --control-h-sm: 1.75rem;
+}
+
+.admin-page input,
+.admin-page select,
+.admin-page textarea {
+  height: var(--control-h);
+  font-size: 0.8125rem;
+  padding-inline: 0.625rem;
+}
+
+.admin-page .btn {
+  min-height: var(--control-h);
+  padding-inline: 0.75rem;
+  font-size: 0.8125rem;
+}
+
+.admin-page .btn-xs {
+  min-height: var(--control-h-sm);
+  padding-inline: 0.5rem;
+  font-size: 0.75rem;
+}
+
+.admin-page .icon-btn {
+  width: var(--control-h-sm);
+  height: var(--control-h-sm);
+  flex: 0 0 var(--control-h-sm);
+}
+
+.admin-page .form-group {
+  margin: 0 0 0.75rem;
+  padding: 0.625rem 0.875rem;
+  border-radius: var(--radius-control);
+}
+
+.admin-page .ps {
+  min-height: 3.5rem;
+  padding: 0.5rem 0.875rem;
+}
+
+.admin-page .pd {
+  padding: 0.875rem 1rem;
+}
+
+.admin-page .tg {
+  height: var(--control-h-sm);
+  width: 2.25rem;
+  flex: 0 0 2.25rem;
+}
+
+.admin-page .tg .sl {
+  inset-block-start: 0.3125rem;
+  height: 1.125rem;
+}
+
+.admin-page .tg .sl::before {
+  width: 0.75rem;
+  height: 0.75rem;
+  inset-inline-start: 0.1875rem;
+  inset-block-start: 0.1875rem;
+}
+
+.admin-page .tg input:checked + .sl::before {
+  transform: translateX(1.125rem);
+}
+
+/* Single line layout for provider model list items */
+.model-single-row {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  flex-wrap: nowrap !important; /* STRICTLY ONE LINE */
+  gap: 6px !important;
+  padding: 3px 6px !important;
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-control);
+  background: var(--color-paper);
+  margin-bottom: 5px !important;
+  min-width: 0 !important;
+  width: 100% !important;
+  overflow-x: auto;
+}
+
+.model-single-row > input.model-id-input,
+.model-single-row > input[id^="mid-"],
+.model-single-row > input.ami {
+  flex: 1 1 auto !important;
+  min-width: 130px !important;
+  height: 1.875rem !important;
+  font-size: 0.8125rem !important;
+  font-family: var(--font-mono);
+  margin: 0 !important;
+  padding: 0 8px !important;
+  border: 1px solid var(--color-rule-2);
+  background: var(--color-paper-2);
+}
+
+.model-single-row > select,
+.model-single-row > .bd,
+.model-single-row > .latency-chip,
+.model-single-row > .tg,
+.model-single-row > .icon-btn,
+.model-single-row > span {
+  flex: 0 0 auto !important;
+  white-space: nowrap !important;
+}
+
+/* Latency chip badge styling */
+.latency-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  background: var(--color-paper-2);
+  color: var(--color-muted);
+  border: 1px solid var(--color-rule);
+  transition: all 0.16s ease;
+  user-select: none;
+}
+.latency-chip.lat-ok {
+  background: var(--color-success-soft);
+  color: var(--color-success-ink);
+  border-color: var(--color-success);
+}
+.latency-chip.lat-err {
+  background: var(--color-danger-soft);
+  color: var(--color-danger-ink);
+  border-color: var(--color-danger);
+}
+.latency-chip.lat-loading {
+  background: var(--color-accent-soft);
+  color: var(--color-focus);
+  border-color: var(--color-focus);
+}
+
 @media (pointer: coarse) {
   .btn, .model-token, .password-toggle, input, select { min-height: var(--control-h); }
   .icon-btn, .password-toggle { width: var(--control-h); height: var(--control-h); flex-basis: var(--control-h); }

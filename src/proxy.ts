@@ -55,7 +55,7 @@ async function recordLog(
   error?: string | null
 ) {
   const latency = Date.now() - startTime
-  const time = new Date().toLocaleString('zh-CN', { hour12: false })
+  const time = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false })
   await addRequestLog(env, {
     id: crypto.randomUUID(),
     time,
@@ -112,7 +112,8 @@ export async function testModelConnection(
   apiKey: string,
   modelId: string,
   apiType?: 'openai' | 'anthropic'
-): Promise<{ success: boolean; message: string; statusCode?: number }> {
+): Promise<{ success: boolean; message: string; statusCode?: number; latencyMs?: number }> {
+  const startTime = Date.now()
   try {
     const cleanBase = baseUrl.replace(/\/$/, '')
     const endpoint = apiType === 'anthropic' ? 'messages' : 'chat/completions'
@@ -139,8 +140,10 @@ export async function testModelConnection(
       signal: AbortSignal.timeout(15000),
     })
 
+    const latencyMs = Date.now() - startTime
+
     if (response.ok) {
-      return { success: true, message: '连接成功', statusCode: response.status }
+      return { success: true, message: '连接成功', statusCode: response.status, latencyMs }
     }
 
     let errorBody = ''
@@ -155,12 +158,14 @@ export async function testModelConnection(
       success: false,
       message: `HTTP ${response.status}: ${errorBody.substring(0, 200)}`,
       statusCode: response.status,
+      latencyMs,
     }
   } catch (err) {
     const error = err as Error
     return {
       success: false,
       message: `连接失败: ${error.message?.substring(0, 200) || '未知错误'}`,
+      latencyMs: Date.now() - startTime,
     }
   }
 }

@@ -28,6 +28,7 @@ export interface OpenCodeTestResult {
   success: boolean
   message: string
   statusCode?: number
+  latencyMs?: number
   data?: unknown
 }
 
@@ -192,6 +193,7 @@ export async function testOpenCodeModel(
   mirrorUrls: string[],
   fetcher?: typeof fetch
 ): Promise<OpenCodeTestResult> {
+  const startTime = Date.now()
   const response = await proxyOpenCodeRequest({
     baseUrl,
     apiKeys,
@@ -205,9 +207,10 @@ export async function testOpenCodeModel(
     }),
     fetcher,
   })
+  const latencyMs = Date.now() - startTime
 
   if (response.ok) {
-    return { success: true, message: '连接成功', statusCode: response.status }
+    return { success: true, message: '连接成功', statusCode: response.status, latencyMs }
   }
 
   const body = await response.text()
@@ -215,6 +218,7 @@ export async function testOpenCodeModel(
     success: false,
     message: `HTTP ${response.status}: ${body.substring(0, 200)}`,
     statusCode: response.status,
+    latencyMs,
   }
 }
 

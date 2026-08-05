@@ -1307,9 +1307,9 @@ function addMdl(id) {
   })
   const cnt = maxIdx + 1
   const d = document.createElement('div')
-  d.className = 'fc mb-3 field-row'
+  d.className = 'fc mb-3 field-row model-single-row'
   d.dataset.idx = cnt
-  d.innerHTML = '<input type="text" value="' + escapeHtml(mid) + '" class="fx1" id="mid-' + escapeHtml(id) + '-' + cnt + '" placeholder="模型 ID"><label class="tg"><input type="checkbox" checked id="men-' + escapeHtml(id) + '-' + cnt + '" onchange="markDirty(true)"><span class="sl"></span></label><button class="icon-btn" onclick="copyRowVal(this)" title="复制模型 ID" aria-label="复制模型 ID"><i class="far fa-copy"></i></button><button class="icon-btn" id="tm-' + escapeHtml(id) + '-' + cnt + '" title="测试模型" aria-label="测试模型"><i class="fas fa-plug"></i></button><button class="icon-btn" id="rm-' + escapeHtml(id) + '-' + cnt + '" title="移除模型" aria-label="移除模型"><i class="fas fa-times"></i></button>'
+  d.innerHTML = '<input type="text" value="' + escapeHtml(mid) + '" class="fx1 model-id-input" id="mid-' + escapeHtml(id) + '-' + cnt + '" placeholder="模型 ID"><span id="lat-' + escapeHtml(id) + '-' + cnt + '" class="latency-chip" title="点击图标测试延迟"><i class="fas fa-gauge-high"></i> <span class="lat-val">-- ms</span></span><label class="tg" title="启用模型"><input type="checkbox" checked id="men-' + escapeHtml(id) + '-' + cnt + '" onchange="markDirty(true)"><span class="sl"></span></label><button class="icon-btn" onclick="copyRowVal(this)" title="复制模型 ID" aria-label="复制模型 ID"><i class="far fa-copy"></i></button><button class="icon-btn test-mdl-btn" id="tm-' + escapeHtml(id) + '-' + cnt + '" title="单独测试模型延迟" aria-label="测试模型延迟"><i class="fas fa-gauge-high"></i></button><button class="icon-btn" id="rm-' + escapeHtml(id) + '-' + cnt + '" title="移除模型" aria-label="移除模型"><i class="fas fa-times"></i></button>'
   c.appendChild(d)
   document.getElementById('tm-' + id + '-' + cnt).addEventListener('click', function() { testMdl(id, mid, cnt, this) })
   document.getElementById('rm-' + id + '-' + cnt).addEventListener('click', function() { rmMdl(id, cnt) })
@@ -1329,9 +1329,15 @@ function rmMdl(id, idx) {
 
 async function testMdl(id, mid, idx, btn) {
   if (btn) { btn.disabled = true; btn.style.opacity = '0.5'; }
+  const row = btn ? btn.closest('.model-single-row') : null;
+  const latEl = row ? row.querySelector('.latency-chip') : document.getElementById('lat-' + id + '-' + idx);
+  if (latEl) {
+    latEl.className = 'latency-chip lat-loading';
+    latEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 测速中';
+  }
   try {
     const tr = document.getElementById('tr-' + id)
-    showSpinner(tr)
+    if (tr) showSpinner(tr)
     const r = await fetch('/admin/api/providers/' + encodeURIComponent(id) + '/test-model', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1339,13 +1345,61 @@ async function testMdl(id, mid, idx, btn) {
     })
     const d = await r.json()
     if (d.success && d.data) {
-      showResult(tr, d.data.success, d.data.success ? '' : (d.data.message || '连接失败'))
+      const latencyMs = d.data.latencyMs || 0;
+      if (d.data.success) {
+        if (latEl) {
+          latEl.className = 'latency-chip lat-ok';
+          latEl.innerHTML = '<i class="fas fa-bolt"></i> ' + latencyMs + ' ms';
+        }
+        if (tr) showResult(tr, true, mid + ' 响应: ' + latencyMs + ' ms')
+        toast(mid + ' 测速成功: ' + latencyMs + ' ms', 'success')
+      } else {
+        if (latEl) {
+          latEl.className = 'latency-chip lat-err';
+          latEl.innerHTML = '<i class="fas fa-exclamation-triangle"></i> 失败 (' + (latencyMs ? latencyMs + 'ms' : '超时') + ')';
+        }
+        if (tr) showResult(tr, false, d.data.message || '连接失败')
+        toast(mid + ' 测试失败: ' + (d.data.message || '连接错误'), 'error')
+      }
     } else {
-      showResult(tr, false, d.message || '测试失败')
+      if (latEl) {
+        latEl.className = 'latency-chip lat-err';
+        latEl.innerHTML = '<i class="fas fa-exclamation-triangle"></i> 失败';
+      }
+      if (tr) showResult(tr, false, d.message || '测试失败')
+      toast('测试失败: ' + (d.message || '未知错误'), 'error')
     }
-  } catch (e) { showResult(tr, false, '请求失败') }
-  finally {
+  } catch (e) {
+    if (latEl) {
+      latEl.className = 'latency-chip lat-err';
+      latEl.innerHTML = '<i class="fas fa-exclamation-triangle"></i> 请求错误';
+    }
+    toast('网络请求失败', 'error')
+  } finally {
     if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
+  }
+}
+
+async function testAllModelsInProviderBtn(btn) {
+  var pId = btn.dataset.pid;
+  if (!pId) return;
+  btn.disabled = true;
+  btn.style.opacity = '0.6';
+  toast('开始批量测试模型延迟...', 'info');
+  try {
+    var c = document.getElementById('ml-' + pId);
+    if (!c) return;
+    var testBtns = c.querySelectorAll('.test-mdl-btn');
+    for (var i = 0; i < testBtns.length; i++) {
+      var b = testBtns[i];
+      var mid = b.dataset.mid;
+      var idx = b.dataset.idx;
+      await testMdl(pId, mid, idx, b);
+    }
+    toast('提供商 ' + pId + ' 模型测速已完成', 'success');
+  } finally {
+    btn.disabled = false;
+    btn.style.opacity = '1';
   }
 }
 
@@ -1531,19 +1585,21 @@ function renderProviderList() {
         '<option value="其他" ' + (mCat === '其他' ? 'selected' : '') + '>其他</option>' +
         '</select>';
 
-      return '<div class="fc mb-3 field-row" data-idx="' + mi + '" style="gap:6px;flex-wrap:wrap;">' +
-        '<input type="text" value="' + mId + '" class="fx1" id="mid-' + pId + '-' + mi + '" placeholder="模型 ID">' +
+      return '<div class="fc field-row model-single-row" data-idx="' + mi + '">' +
+        '<input type="text" value="' + mId + '" class="fx1 model-id-input" id="mid-' + pId + '-' + mi + '" placeholder="模型 ID">' +
         catSelect +
         statusBadge +
         failBadge +
+        '<span id="lat-' + pId + '-' + mi + '" class="latency-chip" title="模型通信延迟"><i class="fas fa-gauge-high"></i> <span class="lat-val">-- ms</span></span>' +
         '<label class="tg" title="启用模型"><input type="checkbox" ' + (m.enabled !== false ? 'checked' : '') + ' id="men-' + pId + '-' + mi + '" onchange="markDirty(true)" aria-label="启用模型"><span class="sl"></span></label>' +
         '<button class="icon-btn" onclick="copyRowVal(this)" title="复制模型 ID" aria-label="复制模型 ID"><i class="far fa-copy" aria-hidden="true"></i></button>' +
-        '<button class="icon-btn" onclick="testMdlBtn(this)" data-pid="' + pId + '" data-mid="' + mId + '" data-idx="' + mi + '" title="测试模型" aria-label="测试模型"><i class="fas fa-plug" aria-hidden="true"></i></button>' +
+        '<button class="icon-btn test-mdl-btn" onclick="testMdlBtn(this)" data-pid="' + pId + '" data-mid="' + mId + '" data-idx="' + mi + '" title="单独测试模型延迟" aria-label="测试模型延迟"><i class="fas fa-gauge-high" aria-hidden="true"></i></button>' +
         '<button class="icon-btn" onclick="rmMdlBtn(this)" data-pid="' + pId + '" data-idx="' + mi + '" title="移除模型" aria-label="移除模型"><i class="fas fa-times" aria-hidden="true"></i></button>' +
         '</div>';
     }).join('');
 
     var providerModelActions = '<div class="fc mb-3" style="gap:8px;flex-wrap:wrap;background:var(--color-paper);padding:8px 12px;border-radius:var(--radius-control);border:1px solid var(--color-rule);">' +
+      '<button class="btn btn-s btn-xs" onclick="testAllModelsInProviderBtn(this)" data-pid="' + pId + '"><i class="fas fa-gauge-high"></i> 批量测模型延迟</button>' +
       '<button class="btn btn-s btn-xs" onclick="fetchUpstreamModelsBtn(this)" data-pid="' + pId + '"><i class="fas fa-cloud-download-alt"></i> 一键拉取上游模型</button>' +
       '<button class="btn btn-s btn-xs" onclick="showImportModalBtn(this)" data-pid="' + pId + '"><i class="fas fa-file-import"></i> 一键导入</button>' +
       '<button class="btn btn-d btn-xs" onclick="clearProviderModelsBtn(this)" data-pid="' + pId + '"><i class="fas fa-trash-alt"></i> 一键删除全部本提供商模型</button>' +

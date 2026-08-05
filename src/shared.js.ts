@@ -94,11 +94,11 @@ async function testModelConnection(url, apiType, key, modelId, providerId) {
     })
     var d = await r.json()
     if (d.success && d.data) {
-      return { success: d.data.success, status: d.data.statusCode }
+      return { success: d.data.success, status: d.data.statusCode, latencyMs: d.data.latencyMs, message: d.data.message }
     }
-    return { success: false, status: 0 }
+    return { success: false, status: 0, latencyMs: 0 }
   } catch (e) {
-    return { success: false, status: 0 }
+    return { success: false, status: 0, latencyMs: 0 }
   }
 }
 `

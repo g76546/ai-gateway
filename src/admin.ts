@@ -265,12 +265,14 @@ export async function handleTestModelNew(c: Context<{ Bindings: Env }>) {
     return c.json<ApiResponse>({ success: false, message: 'url、apiKey、model 为必填项' }, 400)
   }
 
+  const startTime = Date.now()
+
   if (providerId && isOpenCodeProvider(providerId)) {
     const apiKeys = apiKey ? [{ key: apiKey, enabled: true }] : []
     const result = await testOpenCodeModel(url, apiKeys, model, resolveOpenCodeUrls(c.env))
     return c.json<ApiResponse>({
       success: true,
-      data: { success: result.success, statusCode: result.statusCode || 0, message: result.message },
+      data: { success: result.success, statusCode: result.statusCode || 0, message: result.message, latencyMs: result.latencyMs },
     })
   }
 
@@ -284,15 +286,17 @@ export async function handleTestModelNew(c: Context<{ Bindings: Env }>) {
       body: JSON.stringify({ model, messages: [{ role: 'user', content: 'hi' }], max_tokens: 1 }),
       signal: AbortSignal.timeout(15000),
     })
+    const latencyMs = Date.now() - startTime
 
     return c.json<ApiResponse>({
       success: true,
-      data: { success: response.ok, statusCode: response.status },
+      data: { success: response.ok, statusCode: response.status, latencyMs },
     })
   } catch (err) {
+    const latencyMs = Date.now() - startTime
     return c.json<ApiResponse>({
       success: true,
-      data: { success: false, statusCode: 0, message: (err as Error).message || '连接失败' },
+      data: { success: false, statusCode: 0, message: (err as Error).message || '连接失败', latencyMs },
     })
   }
 }

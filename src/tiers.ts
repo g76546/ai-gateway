@@ -519,20 +519,29 @@ export function isLongContextModel(modelId: string): boolean {
 export async function selectAutoModel(
   env: Env,
   isLongText: boolean = false,
-  sessionId: string | null = null
+  sessionId: string | null = null,
+  excludeFullIds?: Set<string> | string[]
 ): Promise<{ providerId: string; modelId: string; fullId: string } | null> {
+  const excludeSet = excludeFullIds
+    ? (excludeFullIds instanceof Set ? excludeFullIds : new Set(excludeFullIds))
+    : null
+
   const storage = await ensureTierStorage(env)
 
   const allModels = await getAllAvailableModels(env)
   const modelMap = new Map(allModels.map((item) => [item.fullId, item]))
 
-  // 过滤第一梯队中当前可用的模型
-  let activeTier1 = storage.tier1.filter((m) => modelMap.has(m.fullId))
+  // 过滤第一梯队中当前可用且未被排除的模型
+  let activeTier1 = storage.tier1.filter(
+    (m) => modelMap.has(m.fullId) && (!excludeSet || !excludeSet.has(m.fullId))
+  )
 
   if (activeTier1.length === 0) {
     // 若第一梯队全部模型不可用，尝试补位
     const backfilled = await backfillTier1FromTier2(env, storage)
-    activeTier1 = backfilled.tier1.filter((m) => modelMap.has(m.fullId))
+    activeTier1 = backfilled.tier1.filter(
+      (m) => modelMap.has(m.fullId) && (!excludeSet || !excludeSet.has(m.fullId))
+    )
   }
 
   if (activeTier1.length === 0) return null
@@ -554,10 +563,10 @@ export async function selectAutoModel(
     candidates = activeTier1
   }
 
-  // 3.会话粘性：同一个会话id，优先复用历史调用成功过的模型；前提该模型仍然处于第一梯队且未冷却、未失效。
+  // 3.会话粘性：同一个会话id，优先复用历史调用成功过的模型；前提该模型仍然处于第一梯队且未冷却、未失效、未被排除。
   if (sessionId) {
     const lastSuccessfulFullId = await kvGet(env, `auto:session:${sessionId}`)
-    if (lastSuccessfulFullId) {
+    if (lastSuccessfulFullId && (!excludeSet || !excludeSet.has(lastSuccessfulFullId))) {
       const matched = candidates.find((m) => m.fullId === lastSuccessfulFullId)
       if (matched) {
         return { providerId: matched.providerId, modelId: matched.modelId, fullId: matched.fullId }

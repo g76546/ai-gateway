@@ -703,6 +703,11 @@ function unblockModelBtn(btn) {
   unblockModel(pid, mid);
 }
 
+function resetAllModelsInProviderBtn(btn) {
+  var pid = btn.getAttribute('data-pid');
+  if (pid) resetAllModelsInProvider(pid);
+}
+
 function updateModelCatBtn(selectEl) {
   var pid = selectEl.getAttribute('data-pid');
   var mid = selectEl.getAttribute('data-mid');
@@ -1547,6 +1552,17 @@ function renderProviderList() {
     var keysArr = p.apiKeys || [];
     var modelsArr = p.models || [];
 
+    var abnormalCount = 0;
+    modelsArr.forEach(function(m) {
+      if (m.permanentlyDisabled || (m.cooldownUntil && Date.now() < m.cooldownUntil) || (m.failureCount && m.failureCount > 0)) {
+        abnormalCount++;
+      }
+    });
+
+    var abnormalBadge = abnormalCount > 0
+      ? '<span style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;padding:2px 8px;font-size:11px;border-radius:10px;font-weight:600;display:inline-flex;align-items:center;gap:4px;"><i class="fas fa-exclamation-triangle"></i> ' + abnormalCount + '个模型存在异常</span>'
+      : '';
+
     var keysHtml = keysArr.map(function(k, ki) {
       return '<div class="fc mb-3 field-row" data-kidx="' + ki + '">' +
         '<input type="text" value="' + escapeHtml(k.key || '') + '" class="fx1" id="k-' + pId + '-' + ki + '" placeholder="API Key" aria-label="API Key">' +
@@ -1568,17 +1584,19 @@ function renderProviderList() {
 
       var statusBadge = '';
       if (isPermDisabled) {
-        statusBadge = '<span class="bd" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;padding:2px 6px;font-size:11px;border-radius:4px;" title="' + escapeHtml(permReason) + '"><i class="fas fa-ban"></i> 永久失效标红</span>' +
-          '<button class="btn btn-s btn-xs" style="padding:2px 6px;font-size:11px;" onclick="unblockModelBtn(this)" data-pid="' + pId + '" data-mid="' + mId + '"><i class="fas fa-unlock"></i> 解封</button>';
+        statusBadge = '<span class="bd" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;padding:2px 6px;font-size:11px;border-radius:4px;font-weight:600;" title="' + escapeHtml(permReason) + '"><i class="fas fa-ban"></i> 永久失效 (' + failCount + '/3)</span>' +
+          '<button class="btn btn-s btn-xs" style="padding:2px 6px;font-size:11px;" onclick="unblockModelBtn(this)" data-pid="' + pId + '" data-mid="' + mId + '" title="一键解封并恢复状态"><i class="fas fa-unlock"></i> 解封恢复</button>';
       } else if (isCooldown) {
-        statusBadge = '<span class="bd" style="background:#fefce8;color:#ca8a04;border:1px solid #fef08a;padding:2px 6px;font-size:11px;border-radius:4px;"><i class="fas fa-hourglass-half"></i> 冷却标黄 (' + cooldownSec + 's)</span>';
+        statusBadge = '<span class="bd" style="background:#fefce8;color:#ca8a04;border:1px solid #fef08a;padding:2px 6px;font-size:11px;border-radius:4px;font-weight:600;" title="因异常进入冷却状态"><i class="fas fa-hourglass-half"></i> 冷却中 (' + cooldownSec + 's)</span>' +
+          '<button class="btn btn-s btn-xs" style="padding:2px 6px;font-size:11px;" onclick="unblockModelBtn(this)" data-pid="' + pId + '" data-mid="' + mId + '" title="重置冷却状态"><i class="fas fa-redo"></i> 重置冷却</button>';
+      } else if (failCount > 0) {
+        statusBadge = '<span class="bd" style="background:#fff7ed;color:#ea580c;border:1px solid #ffedd5;padding:2px 6px;font-size:11px;border-radius:4px;font-weight:600;" title="曾出现探测或业务异常"><i class="fas fa-exclamation-triangle"></i> 警告 (失败 ' + failCount + '/3)</span>' +
+          '<button class="btn btn-s btn-xs" style="padding:2px 6px;font-size:11px;" onclick="unblockModelBtn(this)" data-pid="' + pId + '" data-mid="' + mId + '" title="清零失败计数"><i class="fas fa-check"></i> 清零恢复</button>';
       } else if (m.enabled !== false) {
         statusBadge = '<span class="bd bd-on" style="padding:2px 6px;font-size:11px;border-radius:4px;"><i class="fas fa-check-circle"></i> 正常</span>';
       } else {
         statusBadge = '<span class="bd bd-off" style="padding:2px 6px;font-size:11px;border-radius:4px;"><i class="fas fa-minus-circle"></i> 已禁用</span>';
       }
-
-      var failBadge = failCount > 0 ? '<span style="font-size:11px;color:var(--color-muted);" title="探测/业务失败累计次">失败: ' + failCount + '/3</span>' : '';
 
       var catSelect = '<select class="select-xs" style="padding:2px 6px;font-size:11px;border-radius:4px;" onchange="updateModelCatBtn(this)" data-pid="' + pId + '" data-mid="' + mId + '" title="修改智能分类">' +
         '<option value="文本" ' + (mCat === '文本' ? 'selected' : '') + '>文本</option>' +
@@ -1591,7 +1609,6 @@ function renderProviderList() {
         '<input type="text" value="' + mId + '" class="fx1 model-id-input" id="mid-' + pId + '-' + mi + '" placeholder="模型 ID">' +
         catSelect +
         statusBadge +
-        failBadge +
         '<span id="lat-' + pId + '-' + mi + '" class="latency-chip" title="模型通信延迟"><i class="fas fa-gauge-high"></i> <span class="lat-val">-- ms</span></span>' +
         '<label class="tg" title="启用模型"><input type="checkbox" ' + (m.enabled !== false ? 'checked' : '') + ' id="men-' + pId + '-' + mi + '" onchange="markDirty(true)" aria-label="启用模型"><span class="sl"></span></label>' +
         '<button class="icon-btn" onclick="copyRowVal(this)" title="复制模型 ID" aria-label="复制模型 ID"><i class="far fa-copy" aria-hidden="true"></i></button>' +
@@ -1604,6 +1621,7 @@ function renderProviderList() {
       '<button class="btn btn-s btn-xs" onclick="testAllModelsInProviderBtn(this)" data-pid="' + pId + '"><i class="fas fa-gauge-high"></i> 批量测模型延迟</button>' +
       '<button class="btn btn-s btn-xs" onclick="fetchUpstreamModelsBtn(this)" data-pid="' + pId + '"><i class="fas fa-cloud-download-alt"></i> 一键拉取上游模型</button>' +
       '<button class="btn btn-s btn-xs" onclick="showImportModalBtn(this)" data-pid="' + pId + '"><i class="fas fa-file-import"></i> 一键导入</button>' +
+      (abnormalCount > 0 ? '<button class="btn btn-s btn-xs" onclick="resetAllModelsInProviderBtn(this)" data-pid="' + pId + '" style="color:#d97706;border-color:#fcd34d;"><i class="fas fa-sync-alt"></i> 一键重置本提供商所有模型异常</button>' : '') +
       '<button class="btn btn-d btn-xs" onclick="clearProviderModelsBtn(this)" data-pid="' + pId + '"><i class="fas fa-trash-alt"></i> 一键删除全部本提供商模型</button>' +
       '</div>';
 
@@ -1613,7 +1631,7 @@ function renderProviderList() {
 
     return '<article class="pi" data-id="' + pId + '">' +
       '<div class="ps" onclick="togBtn(this)" data-pid="' + pId + '" role="button" tabindex="0" onkeydown="togKey(event,this)" aria-controls="dt-' + pId + '">' +
-        '<div class="l"><i class="fas fa-chevron-right provider-chevron" aria-hidden="true" id="ch-' + pId + '"></i><span class="provider-avatar" aria-hidden="true">' + escapeHtml((pName.charAt(0) || 'A').toUpperCase()) + '</span><div><h3>' + pName + '</h3><div class="pu"><code>' + pId + '</code><span>' + (isAnthropic ? 'Anthropic' : 'OpenAI') + '</span><span>' + keysArr.length + ' Keys</span><span>' + modelsArr.length + ' 模型</span></div></div></div>' +
+        '<div class="l"><i class="fas fa-chevron-right provider-chevron" aria-hidden="true" id="ch-' + pId + '"></i><span class="provider-avatar" aria-hidden="true">' + escapeHtml((pName.charAt(0) || 'A').toUpperCase()) + '</span><div><h3>' + pName + '</h3><div class="pu"><code>' + pId + '</code><span>' + (isAnthropic ? 'Anthropic' : 'OpenAI') + '</span><span>' + keysArr.length + ' Keys</span><span>' + modelsArr.length + ' 模型</span>' + abnormalBadge + '</div></div></div>' +
         '<div class="fc fx-s0" onclick="event.stopPropagation()"><label class="tg"><input type="checkbox" ' + (isEnabled ? 'checked' : '') + ' id="en-' + pId + '" onchange="togglePbBtn(this)" data-pid="' + pId + '" aria-label="启用 ' + pName + '"><span class="sl"></span></label><span class="bd ' + (isEnabled ? 'bd-on' : 'bd-off') + '">' + (isEnabled ? '已启用' : '未启用') + '</span></div>' +
       '</div>' +
       '<div class="pd" id="dt-' + pId + '">' +
@@ -1919,12 +1937,46 @@ async function unblockModel(providerId, modelId) {
         }
       }
       renderProviderList();
-      toast('模型 [' + modelId + '] 已成功解封！', 'success');
+      toast('模型 [' + modelId + '] 已成功解封/重置！', 'success');
     } else {
       aM('解封失败：' + (data.message || '未知错误'), 'error');
     }
   } catch (err) {
     aM('请求异常：' + ((err && err.message) || String(err)), 'error');
+  }
+}
+
+async function resetAllModelsInProvider(providerId) {
+  var p = draftProviders.find(function(item) { return item.id === providerId; });
+  if (!p || !p.models || !p.models.length) return;
+
+  var abnormalModels = p.models.filter(function(m) {
+    return m.permanentlyDisabled || (m.cooldownUntil && Date.now() < m.cooldownUntil) || (m.failureCount && m.failureCount > 0);
+  });
+
+  if (!abnormalModels.length) {
+    toast('该提供商下无异常模型需重置', 'info');
+    return;
+  }
+
+  try {
+    toast('正在重置本提供商所有异常模型...', 'info');
+    for (var i = 0; i < abnormalModels.length; i++) {
+      var m = abnormalModels[i];
+      await fetch('/admin/api/providers/' + encodeURIComponent(providerId) + '/models/' + encodeURIComponent(m.id), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ unblockPermanent: true })
+      });
+      m.permanentlyDisabled = false;
+      m.disabledReason = null;
+      m.failureCount = 0;
+      m.cooldownUntil = null;
+    }
+    renderProviderList();
+    toast('已成功重置本提供商所有模型的异常状态！', 'success');
+  } catch (err) {
+    aM('重置部分模型状态异常：' + ((err && err.message) || String(err)), 'error');
   }
 }
 

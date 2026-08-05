@@ -10,6 +10,15 @@ async function recordModelFailure(env: Env, providerId: string, modelId: string,
   const provider = await getProvider(env, providerId)
   if (!provider) return
 
+  // HTTP 400 状态码通常是客户端请求参数不兼容问题（如 Unsupported parameter, Invalid JSON, thinking 参数等），不计入模型故障与冷却
+  const lowerMsg = (errorMsg || '').toLowerCase()
+  const isBadRequestParam = status === 400 && (
+    lowerMsg.includes('parameter') ||
+    lowerMsg.includes('validation') ||
+    lowerMsg.includes('invalid') ||
+    lowerMsg.includes('unsupported')
+  )
+
   const permReason = detectPermanentFailure(status, errorMsg)
   let updated = false
 
@@ -23,6 +32,11 @@ async function recordModelFailure(env: Env, providerId: string, modelId: string,
         permanentlyDisabled: true,
         disabledReason: permReason,
       }
+    }
+
+    if (isBadRequestParam) {
+      // 客户端传参问题不增加失败次数也不触发冷却
+      return m
     }
 
     const newFailures = (m.failureCount || 0) + 1
@@ -323,6 +337,8 @@ export async function handleProxy(c: Context<{ Bindings: Env }>) {
 
     const enabledKeys = provider.apiKeys.filter(k => k.enabled)
     const forwardBody = { ...body, model: modelId }
+    // 自动清洗兼容性参数：剥离听书/客户端自动附带但部分上游模型不支持的 thinking 属性
+    delete (forwardBody as Record<string, unknown>).thinking
     const url = new URL(c.req.url)
     const subPath = url.pathname.replace(/^\/v1\//, '') || 'chat/completions'
 

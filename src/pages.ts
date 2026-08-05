@@ -848,6 +848,8 @@ function tog(id) {
   if (d && c) {
     d.classList.toggle('open')
     c.style.transform = d.classList.contains('open') ? 'rotate(90deg)' : ''
+    const card = d.closest('.pi')
+    if (card) card.classList.toggle('open', d.classList.contains('open'))
   }
 }
 

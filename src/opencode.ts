@@ -154,7 +154,32 @@ export async function proxyOpenCodeRequest(options: OpenCodeRequestOptions): Pro
         requestId,
         sessionId
       )
-      if (response.ok) return response
+      if (response.ok) {
+        if (options.body && !options.body.includes('"stream":true') && !options.body.includes('"stream": true')) {
+          try {
+            const cloned = response.clone()
+            const resJson = await cloned.json() as any
+            if (resJson && Array.isArray(resJson.choices) && resJson.choices.length > 0) {
+              const msg = resJson.choices[0]?.message
+              const hasToolCalls = (msg?.tool_calls && Array.isArray(msg.tool_calls) && msg.tool_calls.length > 0) || !!msg?.function_call
+              if (!hasToolCalls) {
+                const content = msg?.content
+                if (content === '' || content === null || content === undefined || (typeof content === 'string' && content.trim() === '')) {
+                  officialFailure = await storeFailure(new Response(JSON.stringify({ error: { message: 'OpenCode 上游返回空内容', type: 'empty_response' } }), {
+                    status: 502,
+                    statusText: 'Bad Gateway',
+                    headers: { 'Content-Type': 'application/json' },
+                  }))
+                  continue
+                }
+              }
+            }
+          } catch {
+            // ignore
+          }
+        }
+        return response
+      }
 
       officialFailure = await storeFailure(response)
       if (response.status !== 401 && response.status !== 403 && response.status !== 429) break
@@ -174,7 +199,32 @@ export async function proxyOpenCodeRequest(options: OpenCodeRequestOptions): Pro
         requestId,
         sessionId
       )
-      if (response.ok) return response
+      if (response.ok) {
+        if (options.body && !options.body.includes('"stream":true') && !options.body.includes('"stream": true')) {
+          try {
+            const cloned = response.clone()
+            const resJson = await cloned.json() as any
+            if (resJson && Array.isArray(resJson.choices) && resJson.choices.length > 0) {
+              const msg = resJson.choices[0]?.message
+              const hasToolCalls = (msg?.tool_calls && Array.isArray(msg.tool_calls) && msg.tool_calls.length > 0) || !!msg?.function_call
+              if (!hasToolCalls) {
+                const content = msg?.content
+                if (content === '' || content === null || content === undefined || (typeof content === 'string' && content.trim() === '')) {
+                  mirrorFailure = await storeFailure(new Response(JSON.stringify({ error: { message: 'OpenCode 镜像返回空内容', type: 'empty_response' } }), {
+                    status: 502,
+                    statusText: 'Bad Gateway',
+                    headers: { 'Content-Type': 'application/json' },
+                  }))
+                  continue
+                }
+              }
+            }
+          } catch {
+            // ignore
+          }
+        }
+        return response
+      }
       mirrorFailure = await storeFailure(response)
     } catch (error) {
       lastTransportError = error

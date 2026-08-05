@@ -143,6 +143,21 @@ export async function testModelConnection(
     const latencyMs = Date.now() - startTime
 
     if (response.ok) {
+      try {
+        const resData = await response.json() as any
+        if (resData && Array.isArray(resData.choices) && resData.choices.length > 0) {
+          const msg = resData.choices[0]?.message
+          const hasToolCalls = (msg?.tool_calls && Array.isArray(msg.tool_calls) && msg.tool_calls.length > 0) || !!msg?.function_call
+          if (!hasToolCalls) {
+            const content = msg?.content
+            if (content === '' || content === null || content === undefined || (typeof content === 'string' && content.trim() === '')) {
+              return { success: false, message: '连接失败: 上游返回空内容', statusCode: response.status, latencyMs }
+            }
+          }
+        }
+      } catch {
+        // ignore JSON parse failure
+      }
       return { success: true, message: '连接成功', statusCode: response.status, latencyMs }
     }
 
@@ -299,10 +314,44 @@ export async function handleProxy(c: Context<{ Bindings: Env }>) {
         body: JSON.stringify(forwardBody),
         mirrorUrls: resolveOpenCodeUrls(c.env),
       })
+
+      let resText: string | null = null
+      let isContentEmpty = false
+
+      if (response.ok && !forwardBody.stream) {
+        try {
+          resText = await response.text()
+          const resJson = JSON.parse(resText)
+          if (resJson && Array.isArray(resJson.choices) && resJson.choices.length > 0) {
+            const choice = resJson.choices[0]
+            const msg = choice?.message
+            const hasToolCalls = (msg?.tool_calls && Array.isArray(msg.tool_calls) && msg.tool_calls.length > 0) || !!msg?.function_call
+            if (!hasToolCalls) {
+              const content = msg?.content
+              if (content === '' || content === null || content === undefined || (typeof content === 'string' && content.trim() === '')) {
+                isContentEmpty = true
+              }
+            }
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      if (isContentEmpty) {
+        const errReason = '上游返回空内容 (choices[0].message.content 为空)'
+        await recordModelFailure(c.env, providerId, modelId, 502, errReason)
+        await recordLog(c.env, startTime, requestedModel, 502, errReason)
+        await recordBusinessLatency(c.env, `${providerId}/${modelId}`, Date.now() - startTime, false, isAutoRequest, sessionId)
+        return c.json({
+          error: { message: errReason, type: 'empty_response' },
+        }, 502)
+      }
+
       const errReason = response.ok ? null : `HTTP ${response.status}: ${response.statusText || '请求失败'}`
       await recordLog(c.env, startTime, requestedModel, response.status, errReason)
       await recordBusinessLatency(c.env, `${providerId}/${modelId}`, Date.now() - startTime, response.ok, isAutoRequest, sessionId)
-      return new Response(response.body, {
+      return new Response(resText !== null ? resText : response.body, {
         status: response.status,
         statusText: response.statusText,
         headers: response.headers,
@@ -392,6 +441,46 @@ export async function handleProxy(c: Context<{ Bindings: Env }>) {
         })
 
         if (response.ok) {
+          let resText: string | null = null
+          let isContentEmpty = false
+
+          if (!forwardBody.stream) {
+            try {
+              resText = await response.text()
+              const resJson = JSON.parse(resText)
+              if (resJson && Array.isArray(resJson.choices) && resJson.choices.length > 0) {
+                const choice = resJson.choices[0]
+                const msg = choice?.message
+                const hasToolCalls = (msg?.tool_calls && Array.isArray(msg.tool_calls) && msg.tool_calls.length > 0) || !!msg?.function_call
+                if (!hasToolCalls) {
+                  const content = msg?.content
+                  if (content === '' || content === null || content === undefined || (typeof content === 'string' && content.trim() === '')) {
+                    isContentEmpty = true
+                  }
+                }
+              }
+            } catch {
+              // ignore JSON parse error
+            }
+          }
+
+          if (isContentEmpty) {
+            console.warn(`[proxy] Upstream returned empty content from provider ${providerId}, model ${modelId}, key index ${keyIndex}. Failing over...`)
+            const h = healthData[apiKey] || { failures: 0, lastFailed: false }
+            h.failures++
+            h.lastFailed = true
+            if (h.failures >= KEY_HEALTH_MAX_FAILURES) {
+              h.demotedAt = Date.now()
+            }
+            healthData[apiKey] = h
+            healthUpdated = true
+            await recordModelFailure(c.env, providerId, modelId, 502, '上游返回空内容 (choices[0].message.content 为空)')
+            lastError = new Response(JSON.stringify({
+              error: { message: '上游返回空内容 (choices[0].message.content 为空)', type: 'empty_response' },
+            }), { status: 502 })
+            continue
+          }
+
           // 成功：重置健康状态
           if (healthData[apiKey]?.failures > 0) {
             delete healthData[apiKey]
@@ -405,7 +494,7 @@ export async function handleProxy(c: Context<{ Bindings: Env }>) {
           }
           await recordLog(c.env, startTime, requestedModel, response.status, null)
           await recordBusinessLatency(c.env, `${providerId}/${modelId}`, Date.now() - startTime, true, isAutoRequest, sessionId)
-          return new Response(response.body, {
+          return new Response(resText !== null ? resText : response.body, {
             status: response.status,
             headers: responseHeaders,
           })

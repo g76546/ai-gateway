@@ -29,6 +29,8 @@ export const LOG_FLUSH_INTERVAL_MS = 30000
 
 export const TIER_1_MAX_SLOTS = 9
 
+export const DEFAULT_REQUEST_TIMEOUT_SEC = 25
+
 export const KV_KEYS = {
   PROVIDERS: 'providers',
   PROXY_KEYS: 'proxy:keys',
@@ -37,6 +39,7 @@ export const KV_KEYS = {
   OPENCODE_MIGRATION: 'migration:opencode-default:v1',
   REQUEST_LOGS: 'gateway:request_logs',
   DEBUG_MODE: 'config:debug_mode',
+  REQUEST_TIMEOUT: 'config:request_timeout',
   TIER_DATA: 'gateway:tier_data',
 } as const
 

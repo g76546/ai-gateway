@@ -1,5 +1,5 @@
 import { Context } from 'hono'
-import { getProviders, getProxyKeys, getLogs, getDebugMode } from './storage'
+import { getProviders, getProxyKeys, getLogs, getDebugMode, getRequestTimeout } from './storage'
 import { SITE_CONFIG, OPENCODE_DEFAULT_URL } from './config'
 import type { Env } from './types'
 import { CSS_CONTENT } from './pages.css'
@@ -415,6 +415,7 @@ export async function renderAdminPage(c: Context<{ Bindings: Env }>) {
   const proxyKeys = await getProxyKeys(c.env)
   const logs = await getLogs(c.env)
   const isDebug = await getDebugMode(c.env)
+  const requestTimeout = await getRequestTimeout(c.env)
   const enabledProvidersCount = providers.filter((provider) => provider.enabled).length
   const modelsCount = providers.reduce((total, provider) => total + provider.models.length, 0)
   const enabledModelsCount = providers.reduce((total, provider) => total + provider.models.filter((model) => model.enabled).length, 0)
@@ -535,13 +536,18 @@ ${H('管理')}
       <section id="logs" class="workspace-section" aria-labelledby="logs-title">
         <div class="section-heading section-heading--admin">
           <div><h2 id="logs-title">网关请求日志</h2><p>记录客户端 API 请求，包含耗时、HTTP 状态与失败原因。</p></div>
-          <div class="fc" style="gap:12px;flex-wrap:wrap;">
-            <label class="switch-label" style="background:var(--color-paper);padding:6px 12px;border-radius:var(--radius-control);border:1px solid var(--color-rule);" title="调试模式开启：每条日志实时写入 KV 并前端实时刷新">
-              <span style="font-size:var(--text-xs);font-weight:600;">调试模式 (实时落盘)</span>
+          <div class="admin-toolbar">
+            <div class="admin-tool-item" title="代理请求单次超时限制（单位：秒）">
+              <span class="admin-tool-label">超时(秒):</span>
+              <input type="number" id="request-timeout-input" value="${requestTimeout}" min="5" max="180" class="admin-tool-input">
+              <button class="btn btn-s btn-xs" onclick="saveRequestTimeout()">保存</button>
+            </div>
+            <label class="admin-tool-item switch-label" style="cursor:pointer;" title="调试模式开启：每条日志实时写入 KV 并前端实时刷新">
+              <span class="admin-tool-label">调试模式 (实时落盘)</span>
               <span class="tg"><input type="checkbox" id="debug-mode-toggle" ${isDebug ? 'checked' : ''} onchange="toggleDebugMode(this.checked)"><span class="sl"></span></span>
             </label>
-            <button class="btn btn-s" onclick="fetchLogs()"><i class="fas fa-sync" aria-hidden="true"></i>刷新日志</button>
-            <button class="btn btn-d" onclick="clearAllLogs()"><i class="fas fa-trash" aria-hidden="true"></i>清空日志</button>
+            <button class="btn btn-s" onclick="fetchLogs()"><i class="fas fa-sync" aria-hidden="true"></i> 刷新日志</button>
+            <button class="btn btn-d" onclick="clearAllLogs()"><i class="fas fa-trash" aria-hidden="true"></i> 清空日志</button>
           </div>
         </div>
         <div id="logs-panel" class="logs-container">
@@ -1722,6 +1728,31 @@ function setupAutoRefresh(enabled) {
         fetchLogs();
       }
     }, 3000);
+  }
+}
+
+async function saveRequestTimeout() {
+  var input = document.getElementById('request-timeout-input');
+  if (!input) return;
+  var val = parseInt(input.value, 10);
+  if (isNaN(val) || val < 5 || val > 180) {
+    toast('超时时间必须在 5 - 180 秒之间', 'error');
+    return;
+  }
+  try {
+    var res = await fetch('/admin/api/config/timeout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ timeoutSec: val })
+    });
+    var json = await res.json();
+    if (json.success) {
+      toast(json.message || '代理超时时间已保存', 'success');
+    } else {
+      toast(json.message || '保存失败', 'error');
+    }
+  } catch (err) {
+    toast('网络请求异常', 'error');
   }
 }
 

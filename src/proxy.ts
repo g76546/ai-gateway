@@ -1,5 +1,5 @@
 import { Context } from 'hono'
-import { getProvider, getProviders, updateProvider, kvGet, kvPut, kvDelete, addRequestLog, getDebugMode } from './storage'
+import { getProvider, getProviders, updateProvider, kvGet, kvPut, kvDelete, addRequestLog, getDebugMode, getRequestTimeout } from './storage'
 import { KV_KEYS, KEY_HEALTH_COOLDOWN_MS, KEY_HEALTH_MAX_FAILURES } from './config'
 import type { Env, ProxyRequestBody } from './types'
 import { isOpenCodeProvider, proxyOpenCodeRequest, resolveOpenCodeUrls } from './opencode'
@@ -342,6 +342,9 @@ export async function handleProxy(c: Context<{ Bindings: Env }>) {
     const url = new URL(c.req.url)
     const subPath = url.pathname.replace(/^\/v1\//, '') || 'chat/completions'
 
+    const requestTimeoutSec = await getRequestTimeout(c.env)
+    const timeoutMs = requestTimeoutSec * 1000
+
     if (isOpenCodeProvider(providerId)) {
       const response = await proxyOpenCodeRequest({
         baseUrl: provider.baseUrl,
@@ -351,6 +354,7 @@ export async function handleProxy(c: Context<{ Bindings: Env }>) {
         search: url.search,
         body: JSON.stringify(forwardBody),
         mirrorUrls: resolveOpenCodeUrls(c.env),
+        timeoutMs,
       })
 
       let resText: string | null = null
@@ -475,7 +479,7 @@ export async function handleProxy(c: Context<{ Bindings: Env }>) {
           method: c.req.method,
           headers: forwardHeaders,
           body: JSON.stringify(forwardBody),
-          signal: AbortSignal.timeout(60000),
+          signal: AbortSignal.timeout(timeoutMs),
         })
 
         if (response.ok) {
@@ -516,7 +520,7 @@ export async function handleProxy(c: Context<{ Bindings: Env }>) {
             lastError = new Response(JSON.stringify({
               error: { message: '上游返回空内容 (choices[0].message.content 为空)', type: 'empty_response' },
             }), { status: 502 })
-            continue
+            break
           }
 
           // 成功：重置健康状态
@@ -544,18 +548,33 @@ export async function handleProxy(c: Context<{ Bindings: Env }>) {
           continue
         }
 
-        // 401/403/5xx 尝试下一个 key（标记失败）
-        if (response.status === 401 || response.status === 403 || response.status >= 500) {
+        // 401/403：Auth 问题，尝试下一个 Key
+        if (response.status === 401 || response.status === 403) {
           const h = healthData[apiKey] || { failures: 0, lastFailed: false }
           h.failures++
           h.lastFailed = true
           if (h.failures >= KEY_HEALTH_MAX_FAILURES) {
-            h.demotedAt = Date.now()  // 达到降权阈值或试用失败，重置冷却计时
+            h.demotedAt = Date.now()
           }
           healthData[apiKey] = h
           healthUpdated = true
           lastError = response
           continue
+        }
+
+        // 5xx 服务器/上游崩溃错误：模型层面严重故障，记录并直接跳出（不重复浪费时间重试 Key）
+        if (response.status >= 500) {
+          const h = healthData[apiKey] || { failures: 0, lastFailed: false }
+          h.failures++
+          h.lastFailed = true
+          if (h.failures >= KEY_HEALTH_MAX_FAILURES) {
+            h.demotedAt = Date.now()
+          }
+          healthData[apiKey] = h
+          healthUpdated = true
+          lastError = response
+          await recordModelFailure(c.env, providerId, modelId, response.status, `上游服务器错误 HTTP ${response.status}`)
+          break
         }
 
         // 其他错误（400/404 等）记录模型故障并返回
@@ -567,20 +586,22 @@ export async function handleProxy(c: Context<{ Bindings: Env }>) {
         return c.json(errorData, response.status as Parameters<typeof c.json>[1])
       } catch (err) {
         const error = err as Error
-        // 网络错误也标记为失败
+        // 网络/超时错误：标记 Key 失败并跳出循环，避免在死锁模型上卡死所有 Key
         const h = healthData[apiKey] || { failures: 0, lastFailed: false }
         h.failures++
         h.lastFailed = true
         if (h.failures >= KEY_HEALTH_MAX_FAILURES) {
-          h.demotedAt = Date.now()  // 达到降权阈值或试用失败，重置冷却计时
+          h.demotedAt = Date.now()
         }
         healthData[apiKey] = h
         healthUpdated = true
-        await recordModelFailure(c.env, providerId, modelId, 502, error.message || '网络连接故障')
+        const isTimeout = error.name === 'TimeoutError' || error.message.includes('timeout')
+        const errMsg = isTimeout ? `请求上游超时 (${requestTimeoutSec}s)` : (error.message || '网络连接故障')
+        await recordModelFailure(c.env, providerId, modelId, 502, errMsg)
         lastError = new Response(JSON.stringify({
-          error: { message: error.message || '请求失败', type: 'proxy_error' },
+          error: { message: errMsg, type: 'proxy_error' },
         }), { status: 502 })
-        continue
+        break
       }
     }
 

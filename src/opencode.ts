@@ -13,6 +13,7 @@ interface OpenCodeRequestOptions {
   mirrorUrls: string[]
   search?: string
   body?: string
+  timeoutMs?: number
   fetcher?: typeof fetch
   random?: () => number
 }
@@ -128,7 +129,7 @@ async function requestUpstream(
     method: options.method,
     headers: createRequestHeaders(apiKey, requestId, sessionId),
     body: options.method === 'GET' || options.method === 'HEAD' ? undefined : options.body,
-    signal: AbortSignal.timeout(OPENCODE_TIMEOUT_MS),
+    signal: AbortSignal.timeout(options.timeoutMs ?? OPENCODE_TIMEOUT_MS),
   })
 }
 

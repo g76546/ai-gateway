@@ -15,6 +15,8 @@ import {
   clearLogs,
   getDebugMode,
   setDebugMode,
+  getRequestTimeout,
+  setRequestTimeout,
 } from './storage'
 import { testModelConnection } from './proxy'
 import { fetchOpenCodeModels, isOpenCodeProvider, resolveOpenCodeUrls, testOpenCodeModel } from './opencode'
@@ -402,9 +404,10 @@ export async function handleSaveAll(c: Context<{ Bindings: Env }>) {
 export async function handleGetLogs(c: Context<{ Bindings: Env }>) {
   const logs = await getLogs(c.env)
   const debugMode = await getDebugMode(c.env)
+  const requestTimeout = await getRequestTimeout(c.env)
   return c.json<ApiResponse>({
     success: true,
-    data: { logs, debugMode },
+    data: { logs, debugMode, requestTimeout },
   })
 }
 
@@ -418,9 +421,10 @@ export async function handleClearLogs(c: Context<{ Bindings: Env }>) {
 
 export async function handleGetDebugMode(c: Context<{ Bindings: Env }>) {
   const debugMode = await getDebugMode(c.env)
+  const requestTimeout = await getRequestTimeout(c.env)
   return c.json<ApiResponse>({
     success: true,
-    data: { debugMode },
+    data: { debugMode, requestTimeout },
   })
 }
 
@@ -433,6 +437,17 @@ export async function handleToggleDebugMode(c: Context<{ Bindings: Env }>) {
     message: body.debugMode
       ? '调试模式已开启：每条请求日志实时写入 KV，前端面板实时刷新'
       : '调试模式已关闭：日志采用内存缓存队列，满足阈值/定时器批量落盘（未落地日志已强制落盘）',
+  })
+}
+
+export async function handleSetTimeout(c: Context<{ Bindings: Env }>) {
+  const body = await c.req.json<{ timeoutSec: number }>().catch(() => ({ timeoutSec: 25 }))
+  const sec = Math.max(5, Math.min(180, Number(body.timeoutSec) || 25))
+  await setRequestTimeout(c.env, sec)
+  return c.json<ApiResponse>({
+    success: true,
+    data: { requestTimeout: sec },
+    message: `单次代理请求超时时间已设置为 ${sec} 秒`,
   })
 }
 

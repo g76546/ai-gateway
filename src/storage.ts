@@ -1,4 +1,4 @@
-import { DEFAULT_REQUEST_TIMEOUT_SEC, KV_KEYS, LOG_BATCH_SIZE, LOG_FLUSH_INTERVAL_MS } from './config'
+import { KV_KEYS, LOG_BATCH_SIZE, LOG_FLUSH_INTERVAL_MS } from './config'
 import type { Env, Provider, ProxyKey, RequestLog, Session } from './types'
 import { createLocalKV } from './localKv'
 
@@ -28,44 +28,6 @@ let flushTimer: ReturnType<typeof setTimeout> | null = null
 
 // 动态调试模式控制
 let dynamicDebugMode: boolean | null = null
-
-// 动态超时秒数控制
-let cachedRequestTimeout: number | null = null
-let cachedStreamTimeoutExt: boolean | null = null
-
-export async function getRequestTimeout(env: Env): Promise<number> {
-  if (cachedRequestTimeout !== null) return cachedRequestTimeout
-  const kvVal = await getKV(env).get(KV_KEYS.REQUEST_TIMEOUT)
-  if (kvVal !== null) {
-    const parsed = parseInt(kvVal, 10)
-    if (!isNaN(parsed) && parsed > 0) {
-      cachedRequestTimeout = parsed
-      return cachedRequestTimeout
-    }
-  }
-  return DEFAULT_REQUEST_TIMEOUT_SEC
-}
-
-export async function setRequestTimeout(env: Env, timeoutSec: number): Promise<void> {
-  const sec = Math.max(5, Math.min(300, Math.floor(timeoutSec)))
-  cachedRequestTimeout = sec
-  await getKV(env).put(KV_KEYS.REQUEST_TIMEOUT, String(sec))
-}
-
-export async function getStreamTimeoutExtension(env: Env): Promise<boolean> {
-  if (cachedStreamTimeoutExt !== null) return cachedStreamTimeoutExt
-  const kvVal = await getKV(env).get(KV_KEYS.STREAM_TIMEOUT_EXTENSION)
-  if (kvVal !== null) {
-    cachedStreamTimeoutExt = kvVal === 'true'
-    return cachedStreamTimeoutExt
-  }
-  return true // 默认开启流式超时续期
-}
-
-export async function setStreamTimeoutExtension(env: Env, enabled: boolean): Promise<void> {
-  cachedStreamTimeoutExt = enabled
-  await getKV(env).put(KV_KEYS.STREAM_TIMEOUT_EXTENSION, enabled ? 'true' : 'false')
-}
 
 export function isDebugMode(env?: Env): boolean {
   if (dynamicDebugMode !== null) return dynamicDebugMode

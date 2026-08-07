@@ -15,10 +15,6 @@ import {
   clearLogs,
   getDebugMode,
   setDebugMode,
-  getRequestTimeout,
-  setRequestTimeout,
-  getStreamTimeoutExtension,
-  setStreamTimeoutExtension,
 } from './storage'
 import { testModelConnection } from './proxy'
 import { fetchOpenCodeModels, isOpenCodeProvider, resolveOpenCodeUrls, testOpenCodeModel } from './opencode'
@@ -28,10 +24,6 @@ import {
   resetAllCooldowns,
   detectPermanentFailure,
   autoClassifyModel,
-  isLongContextModel,
-  isTextModel,
-  batchEnableLongContextModels,
-  batchEnableTextModels,
 } from './models'
 import { ensureTierStorage, runInitCrossProbe } from './tiers'
 import type {
@@ -410,10 +402,9 @@ export async function handleSaveAll(c: Context<{ Bindings: Env }>) {
 export async function handleGetLogs(c: Context<{ Bindings: Env }>) {
   const logs = await getLogs(c.env)
   const debugMode = await getDebugMode(c.env)
-  const requestTimeout = await getRequestTimeout(c.env)
   return c.json<ApiResponse>({
     success: true,
-    data: { logs, debugMode, requestTimeout },
+    data: { logs, debugMode },
   })
 }
 
@@ -427,10 +418,9 @@ export async function handleClearLogs(c: Context<{ Bindings: Env }>) {
 
 export async function handleGetDebugMode(c: Context<{ Bindings: Env }>) {
   const debugMode = await getDebugMode(c.env)
-  const requestTimeout = await getRequestTimeout(c.env)
   return c.json<ApiResponse>({
     success: true,
-    data: { debugMode, requestTimeout },
+    data: { debugMode },
   })
 }
 
@@ -443,67 +433,6 @@ export async function handleToggleDebugMode(c: Context<{ Bindings: Env }>) {
     message: body.debugMode
       ? '调试模式已开启：每条请求日志实时写入 KV，前端面板实时刷新'
       : '调试模式已关闭：日志采用内存缓存队列，满足阈值/定时器批量落盘（未落地日志已强制落盘）',
-  })
-}
-
-export async function handleSetTimeout(c: Context<{ Bindings: Env }>) {
-  const body = await c.req.json<{ timeoutSec: number }>().catch(() => ({ timeoutSec: 120 }))
-  const sec = Math.max(5, Math.min(300, Number(body.timeoutSec) || 120))
-  await setRequestTimeout(c.env, sec)
-  return c.json<ApiResponse>({
-    success: true,
-    data: { requestTimeout: sec },
-    message: `单次代理请求超时时间已设置为 ${sec} 秒`,
-  })
-}
-
-export async function handleGetStreamTimeoutExtension(c: Context<{ Bindings: Env }>) {
-  const enabled = await getStreamTimeoutExtension(c.env)
-  return c.json<ApiResponse>({
-    success: true,
-    data: { enabled },
-  })
-}
-
-export async function handleSetStreamTimeoutExtension(c: Context<{ Bindings: Env }>) {
-  const body = await c.req.json<{ enabled: boolean }>().catch(() => ({ enabled: true }))
-  const enabled = !!body.enabled
-  await setStreamTimeoutExtension(c.env, enabled)
-  return c.json<ApiResponse>({
-    success: true,
-    data: { enabled },
-    message: enabled
-      ? '流式超时续期已开启：每次接收数据包自动延长超时倒计时'
-      : '流式超时续期已关闭：维持固定单次请求绝对超时',
-  })
-}
-
-export async function handleBatchImportLongContextModels(c: Context<{ Bindings: Env }>) {
-  const result = await batchEnableLongContextModels(c.env)
-  if (result.enabledCount > 0) {
-    // 自动更新梯队并为第一/第二梯队候选池补位
-    await ensureTierStorage(c.env)
-  }
-  return c.json<ApiResponse>({
-    success: true,
-    data: result,
-    message: result.enabledCount > 0
-      ? `成功一键选拔并启用 ${result.enabledCount} 个适合长文本/大 Prompt 的高容量模型，并已自动同步入梯队候选池！`
-      : '所有适合长文本/大 Prompt 的模型已处于启用状态。',
-  })
-}
-
-export async function handleBatchImportTextModels(c: Context<{ Bindings: Env }>) {
-  const result = await batchEnableTextModels(c.env)
-  if (result.enabledCount > 0) {
-    await ensureTierStorage(c.env)
-  }
-  return c.json<ApiResponse>({
-    success: true,
-    data: result,
-    message: result.enabledCount > 0
-      ? `成功一键选拔并启用 ${result.enabledCount} 个标准文本/对话模型，并已自动同步入梯队候选池！`
-      : '所有标准文本/对话模型已处于启用状态。',
   })
 }
 

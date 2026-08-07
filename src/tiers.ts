@@ -473,17 +473,13 @@ export async function backfillTier1FromTier2(
  * 确保梯队数据就绪（初始化/校验）
  */
 export async function ensureTierStorage(env: Env): Promise<TierStorage> {
-  let existing = await getTierStorage(env)
+  const existing = await getTierStorage(env)
   if (existing && Array.isArray(existing.tier1) && existing.tier1.length > 0) {
     // 存在历史 Tier 1 数据
     const today = new Date().toISOString().split('T')[0]
     if (existing.lastProbeDate !== today) {
       // 跨日或已有前一日历史数据：以此作为基底，对梯队内模型执行一轮轻量探测并补位
       return await validateAndRebuildHistoryTier1(env, existing)
-    }
-    // 若第一梯队席位不足 9 席且第二梯队有候选，自动尝试补位
-    if (existing.tier1.length < TIER_1_MAX_SLOTS && existing.tier2 && existing.tier2.length > 0) {
-      existing = await backfillTier1FromTier2(env, existing)
     }
     return existing
   }
@@ -523,29 +519,20 @@ export function isLongContextModel(modelId: string): boolean {
 export async function selectAutoModel(
   env: Env,
   isLongText: boolean = false,
-  sessionId: string | null = null,
-  excludeFullIds?: Set<string> | string[]
+  sessionId: string | null = null
 ): Promise<{ providerId: string; modelId: string; fullId: string } | null> {
-  const excludeSet = excludeFullIds
-    ? (excludeFullIds instanceof Set ? excludeFullIds : new Set(excludeFullIds))
-    : null
-
   const storage = await ensureTierStorage(env)
 
   const allModels = await getAllAvailableModels(env)
   const modelMap = new Map(allModels.map((item) => [item.fullId, item]))
 
-  // 过滤第一梯队中当前可用且未被排除的模型
-  let activeTier1 = storage.tier1.filter(
-    (m) => modelMap.has(m.fullId) && (!excludeSet || !excludeSet.has(m.fullId))
-  )
+  // 过滤第一梯队中当前可用的模型
+  let activeTier1 = storage.tier1.filter((m) => modelMap.has(m.fullId))
 
-  if (storage.tier1.length < TIER_1_MAX_SLOTS && storage.tier2 && storage.tier2.length > 0) {
-    // 第一梯队席位不足 9 席且第二梯队有候选，自动尝试补位选拔
+  if (activeTier1.length === 0) {
+    // 若第一梯队全部模型不可用，尝试补位
     const backfilled = await backfillTier1FromTier2(env, storage)
-    activeTier1 = backfilled.tier1.filter(
-      (m) => modelMap.has(m.fullId) && (!excludeSet || !excludeSet.has(m.fullId))
-    )
+    activeTier1 = backfilled.tier1.filter((m) => modelMap.has(m.fullId))
   }
 
   if (activeTier1.length === 0) return null
@@ -567,10 +554,10 @@ export async function selectAutoModel(
     candidates = activeTier1
   }
 
-  // 3.会话粘性：同一个会话id，优先复用历史调用成功过的模型；前提该模型仍然处于第一梯队且未冷却、未失效、未被排除。
+  // 3.会话粘性：同一个会话id，优先复用历史调用成功过的模型；前提该模型仍然处于第一梯队且未冷却、未失效。
   if (sessionId) {
     const lastSuccessfulFullId = await kvGet(env, `auto:session:${sessionId}`)
-    if (lastSuccessfulFullId && (!excludeSet || !excludeSet.has(lastSuccessfulFullId))) {
+    if (lastSuccessfulFullId) {
       const matched = candidates.find((m) => m.fullId === lastSuccessfulFullId)
       if (matched) {
         return { providerId: matched.providerId, modelId: matched.modelId, fullId: matched.fullId }
@@ -673,9 +660,33 @@ export async function recordBusinessLatency(
   let eliminationReason = ''
 
   if (!success) {
-    // 业务请求失败 1 次：模型标黄，移出第一梯队，冷却 10 分钟
+    // 规则 ③：业务请求失败 1 次：模型标黄，移出第一梯队，冷却 10 分钟
     shouldEliminate = true
     eliminationReason = `业务请求失败 1 次`
+  } else if (activeCount >= 2) {
+    // 规则 ①：梯队内有效模型数量 ≥ 2 才开启延迟淘汰
+    // 计算梯队内所有有效模型的真实业务延迟平均值
+    let sumLatency = 0
+    let countWithStats = 0
+
+    for (const m of activeTier1List) {
+      const stat = storage.businessStats[m.fullId]
+      if (stat && stat.avgLatency > 0) {
+        sumLatency += stat.avgLatency
+        countWithStats++
+      }
+    }
+
+    if (countWithStats > 0) {
+      const avgTier1BusinessLatency = sumLatency / countWithStats
+      // 单次用户业务延迟 > 梯队内真实业务延迟平均值 × 5
+      if (latency > avgTier1BusinessLatency * 5) {
+        shouldEliminate = true
+        eliminationReason = `单次用户业务延迟 (${latency}ms) 超过梯队内真实业务延迟平均值 (${Math.round(avgTier1BusinessLatency)}ms) 的 5 倍`
+      }
+    }
+  } else {
+    // 规则 ②：梯队仅剩下 1 个有效模型：关闭延迟淘汰逻辑，只执行失败相关规则。
   }
 
   if (shouldEliminate) {
@@ -712,7 +723,7 @@ export async function recordBusinessLatency(
     // 触发空位海选补位
     storage = await backfillTier1FromTier2(env, storage)
   } else {
-    if (storage.tier1.length < TIER_1_MAX_SLOTS && storage.tier2 && storage.tier2.length > 0) {
+    if (debugMode && storage.tier1.length < TIER_1_MAX_SLOTS) {
       storage = await backfillTier1FromTier2(env, storage)
     } else {
       await saveTierStorage(env, storage)

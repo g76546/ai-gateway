@@ -318,6 +318,8 @@ label, legend { color: var(--color-ink-2); font-size: var(--text-xs); font-weigh
   .provider-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-sm); align-items: start; }
 }
 .pi, .ki { min-width: 0; border: .0625rem solid var(--color-rule); border-radius: var(--radius-control); background: var(--color-paper); }
+.pi.pi-yellow { border-color: #fbbf24; background-color: #fffbeb; }
+.pi.pi-red { border-color: #f87171; background-color: #fef2f2; }
 .ps { min-height: 4.75rem; padding: var(--space-xs); display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); cursor: pointer; }
 .ps .l { min-width: 0; display: flex; align-items: center; gap: var(--space-xs); }
 .ps .l > div { min-width: 0; }

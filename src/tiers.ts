@@ -428,22 +428,24 @@ export async function backfillTier1FromTier2(
           }
         }
 
-        // 3. 每一轮探测结束，选取本轮探测延迟最低的可用模型晋升进入第一梯队
+        // 3. 每一轮探测结束，选取本轮探测成功的可用模型按延迟由低到高晋升进入第一梯队
         const successCandidates = roundTested.filter((item) => item.metric.success)
         if (successCandidates.length > 0) {
           successCandidates.sort((a, b) => a.metric.latency - b.metric.latency)
-          const best = successCandidates[0]
+          for (const item of successCandidates) {
+            if (currentSlotsNeeded <= 0) break
 
-          // 晋升到第一梯队
-          storage.tier1.push({
-            ...best.ref,
-            addedAt: Date.now()
-          })
+            // 晋升到第一梯队
+            storage.tier1.push({
+              ...item.ref,
+              addedAt: Date.now()
+            })
 
-          // 从第二梯队移除已晋升的项
-          storage.tier2 = storage.tier2.filter((m) => m.fullId !== best.ref.fullId)
+            // 从第二梯队移除已晋升的项
+            storage.tier2 = storage.tier2.filter((m) => m.fullId !== item.ref.fullId)
 
-          currentSlotsNeeded--
+            currentSlotsNeeded--
+          }
           if (currentSlotsNeeded <= 0) {
             break
           }

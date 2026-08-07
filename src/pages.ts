@@ -498,15 +498,30 @@ ${H('管理')}
             <div class="fg"><label for="afmt">API 格式</label><select id="afmt" class="select-sm"><option value="openai">OpenAI 兼容</option><option value="anthropic">Anthropic 兼容</option></select></div>
             <fieldset class="form-group"><legend>上游 API Keys</legend><div id="akeys"><div class="fc mb-4 field-row"><input type="text" placeholder="sk-xxx" class="fx1 aki" aria-label="上游 API Key"><label class="tg" title="启用 Key"><input type="checkbox" checked class="ake" aria-label="启用 Key"><span class="sl"></span></label><button class="icon-btn" onclick="copyRowVal(this)" title="复制 Key" aria-label="复制 Key"><i class="far fa-copy" aria-hidden="true"></i></button><button class="icon-btn" onclick="testNewAKey(this)" title="测试 Key" aria-label="测试 Key"><i class="fas fa-plug" aria-hidden="true"></i></button><button class="icon-btn" onclick="this.parentElement.remove()" title="移除 Key" aria-label="移除 Key"><i class="fas fa-times" aria-hidden="true"></i></button></div></div><button class="btn btn-s btn-xs" onclick="addAKeyRow()"><i class="fas fa-plus" aria-hidden="true"></i>添加 Key</button></fieldset>
             <aside id="amc" class="hd mdl-list-panel"><div class="panel-heading"><div><span class="panel-heading__mark"><i class="fas fa-cube" aria-hidden="true"></i></span><div><h3>可用模型</h3><p>点击“+”单条添加，或使用一键导入。</p></div></div><div class="fc" style="gap:var(--space-2xs);"><button class="btn btn-s btn-xs" onclick="importAllNewModels()" style="margin-right:8px;"><i class="fas fa-file-import" aria-hidden="true"></i> 一键导入</button><button class="icon-btn" type="button" onclick="hideMdlPanel('amc')" title="关闭可用模型" aria-label="关闭可用模型"><i class="fas fa-times" aria-hidden="true"></i></button></div></div><div id="amcl"></div></aside>
-            <fieldset class="form-group"><legend>模型 ID</legend><div id="amodels"><div class="fc mb-4 field-row"><input type="text" placeholder="deepseek-chat" class="fx1 ami" aria-label="模型 ID"><label class="tg" title="启用模型"><input type="checkbox" checked class="ame" aria-label="启用模型"><span class="sl"></span></label><button class="icon-btn" onclick="copyRowVal(this)" title="复制模型 ID" aria-label="复制模型 ID"><i class="far fa-copy" aria-hidden="true"></i></button><button class="icon-btn" onclick="testNewMdl(this)" title="测试模型" aria-label="测试模型"><i class="fas fa-plug" aria-hidden="true"></i></button><button class="icon-btn" onclick="this.parentElement.remove()" title="移除模型" aria-label="移除模型"><i class="fas fa-times" aria-hidden="true"></i></button></div></div><div class="fc mt-1 field-row"><button class="btn btn-s btn-xs" onclick="addMdlRow()"><i class="fas fa-plus" aria-hidden="true"></i>添加模型</button><button class="btn btn-s btn-xs btn-d" onclick="clearAllNewModels()" style="margin-left:8px;"><i class="fas fa-trash" aria-hidden="true"></i>一键删除所有模型</button></div></fieldset>
+            <fieldset class="form-group"><legend>模型 ID</legend><div id="amodels"><div class="fc mb-4 field-row"><input type="text" placeholder="deepseek-chat" class="fx1 ami" aria-label="模型 ID"><label class="tg" title="启用模型"><input type="checkbox" checked class="ame" aria-label="启用模型"><span class="sl"></span></label><button class="icon-btn" onclick="testNewMdl(this)" title="测试模型" aria-label="测试模型"><i class="fas fa-plug" aria-hidden="true"></i></button><button class="icon-btn" onclick="this.parentElement.remove()" title="移除模型" aria-label="移除模型"><i class="fas fa-times" aria-hidden="true"></i></button></div></div><div class="fc mt-1 field-row"><button class="btn btn-s btn-xs" onclick="addMdlRow()"><i class="fas fa-plus" aria-hidden="true"></i>添加模型</button><button class="btn btn-s btn-xs btn-d" onclick="clearAllNewModels()" style="margin-left:8px;"><i class="fas fa-trash" aria-hidden="true"></i>一键删除所有模型</button></div></fieldset>
             <div class="panel-actions"><label class="switch-label"><span>创建后立即启用</span><span class="tg"><input type="checkbox" checked id="aen"><span class="sl"></span></span></label><div><button class="btn btn-s" onclick="hideAdd()">取消</button><button class="btn btn-p" onclick="createProv()"><i class="fas fa-plus" aria-hidden="true"></i>暂存并添加</button></div></div>
             <div id="atestR" class="mt-1" aria-live="polite"></div>
           </div>
         </div>
 
         <div class="gp provider-list" id="plist">
-          ${providers.length ? providers.map(p=>`
-          <article class="pi" data-id="${escapePageHtml(p.id)}">
+          ${providers.length ? providers.map(p=>{
+            let pStatusClass = '';
+            if (!p.models || p.models.length === 0) {
+              pStatusClass = 'pi-red';
+            } else {
+              const allDisabled = p.models.every((m: any) => m.enabled === false || m.permanentlyDisabled);
+              if (allDisabled) {
+                pStatusClass = 'pi-red';
+              } else {
+                const hasAbnormal = p.models.some((m: any) => m.enabled === false || m.permanentlyDisabled || (m.cooldownUntil && Date.now() < m.cooldownUntil));
+                if (hasAbnormal) {
+                  pStatusClass = 'pi-yellow';
+                }
+              }
+            }
+            return `
+          <article class="pi ${pStatusClass}" data-id="${escapePageHtml(p.id)}">
             <div class="ps" onclick="tog('${p.id}')" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();tog('${p.id}')}" aria-controls="dt-${escapePageHtml(p.id)}">
               <div class="l"><i class="fas fa-chevron-right provider-chevron" aria-hidden="true" id="ch-${escapePageHtml(p.id)}"></i><span class="provider-avatar" aria-hidden="true">${escapePageHtml(p.name.charAt(0).toUpperCase() || 'A')}</span><div><h3>${escapePageHtml(p.name)}</h3><div class="pu"><code>${escapePageHtml(p.id)}</code><span>${(p.apiType||'openai')==='anthropic'?'Anthropic':'OpenAI'}</span><span>${p.apiKeys.length} Keys</span><span>${p.models.length} 模型</span></div></div></div>
               <div class="fc fx-s0" onclick="event.stopPropagation()"><label class="tg"><input type="checkbox" ${p.enabled?'checked':''} id="en-${escapePageHtml(p.id)}" onchange="togglePb('${p.id}',this.checked)" aria-label="启用 ${escapePageHtml(p.name)}"><span class="sl"></span></label><span class="bd ${p.enabled?'bd-on':'bd-off'}">${p.enabled?'已启用':'未启用'}</span></div>
@@ -523,11 +538,12 @@ ${H('管理')}
                 const titleText = isFailed ? `永久失效: ${escapePageHtml(m.disabledReason || '余额不足，等待管理员处理')}` : '模型 ID';
                 const badgeHtml = isFailed ? `<span style="background-color: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 4px; font-weight: 600; margin-right: 8px; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;" title="${titleText}"><i class="fas fa-exclamation-triangle"></i>永久失效</span>` : '';
                 const unblockBtn = isFailed ? `<button class="icon-btn" onclick="unblockModel('${escapePageHtml(p.id)}','${escapePageHtml(m.id)}')" title="点击解封并恢复此模型" style="color: #ef4444; background: #fee2e2; border: 1px solid #fca5a5; border-radius: 4px; padding: 4px 8px; font-size: 0.75rem; display: inline-flex; align-items: center; gap: 4px; margin-right: 4px;"><i class="fas fa-unlock"></i>解封</button>` : '';
-                return `<div class="fc mb-3 field-row" data-idx="${mi}">${badgeHtml}<input type="text" value="${escapePageHtml(m.id)}" class="fx1" id="mid-${escapePageHtml(p.id)}-${mi}" placeholder="模型 ID" ${styleAttr} title="${titleText}"><label class="tg"><input type="checkbox" ${m.enabled?'checked':''} id="men-${escapePageHtml(p.id)}-${mi}" aria-label="启用模型"><span class="sl"></span></label>${unblockBtn}<button class="icon-btn" onclick="copyRowVal(this)" title="复制模型 ID" aria-label="复制模型 ID"><i class="far fa-copy" aria-hidden="true"></i></button><button class="icon-btn" onclick="testMdlBtn(this)" data-pid="${escapePageHtml(p.id)}" data-mid="${escapePageHtml(m.id)}" data-idx="${mi}" title="测试模型" aria-label="测试模型"><i class="fas fa-plug" aria-hidden="true"></i></button><button class="icon-btn" onclick="rmMdl('${p.id}',${mi})" title="移除模型" aria-label="移除模型"><i class="fas fa-times" aria-hidden="true"></i></button></div>`;
+                return `<div class="fc mb-3 field-row" data-idx="${mi}">${badgeHtml}<input type="text" value="${escapePageHtml(m.id)}" class="fx1" id="mid-${escapePageHtml(p.id)}-${mi}" placeholder="模型 ID" ${styleAttr} title="${titleText}"><label class="tg"><input type="checkbox" ${m.enabled?'checked':''} id="men-${escapePageHtml(p.id)}-${mi}" aria-label="启用模型"><span class="sl"></span></label>${unblockBtn}<button class="icon-btn" onclick="testMdlBtn(this)" data-pid="${escapePageHtml(p.id)}" data-mid="${escapePageHtml(m.id)}" data-idx="${mi}" title="测试模型" aria-label="测试模型"><i class="fas fa-plug" aria-hidden="true"></i></button><button class="icon-btn" onclick="rmMdl('${p.id}',${mi})" title="移除模型" aria-label="移除模型"><i class="fas fa-times" aria-hidden="true"></i></button></div>`;
               }).join('')}</div><div class="fc mt-1 field-row"><input type="text" id="nmid-${escapePageHtml(p.id)}" placeholder="新的模型 ID" class="fx1"><button class="btn btn-s btn-xs" onclick="addMdl('${p.id}')"><i class="fas fa-plus" aria-hidden="true"></i>添加</button><button class="btn btn-s btn-xs btn-d" onclick="clearAllEditModels('${p.id}')" style="margin-left:8px;"><i class="fas fa-trash" aria-hidden="true"></i>一键删除模型</button></div></fieldset>
               <div class="detail-actions"><div id="tr-${escapePageHtml(p.id)}" aria-live="polite"></div><div>${p.models.some(m => m.permanentlyDisabled || (m.cooldownUntil && Date.now() < m.cooldownUntil)) ? `<button class="btn btn-s" onclick="resetAllModelsInProvider('${escapePageHtml(p.id)}')" style="margin-right:8px;"><i class="fas fa-undo-alt" aria-hidden="true"></i>重置异常模型</button>` : ''}${p.id === 'opencode' ? `<button class="btn btn-s" onclick="fetchEditModels('${escapePageHtml(p.id)}',this)"><i class="fas fa-download" aria-hidden="true"></i>获取模型</button>` : ''}<button class="btn btn-d" onclick="del('${p.id}')"><i class="fas fa-trash" aria-hidden="true"></i>删除</button><button class="btn btn-p" onclick="save('${p.id}')"><i class="fas fa-save" aria-hidden="true"></i>暂存更改</button></div></div>
             </div>
-          </article>`).join('') : `<div class="empty-state"><i class="fas fa-server" aria-hidden="true"></i><h3>还没有提供商</h3><p>添加第一个上游提供商，配置 API 地址、Key 和模型。</p><button class="btn btn-p" onclick="showAdd()">添加提供商</button></div>`}
+          </article>`
+          }).join('') : `<div class="empty-state"><i class="fas fa-server" aria-hidden="true"></i><h3>还没有提供商</h3><p>添加第一个上游提供商，配置 API 地址、Key 和模型。</p><button class="btn btn-p" onclick="showAdd()">添加提供商</button></div>`}
         </div>
       </section>
 
@@ -892,7 +908,7 @@ function resetAddForm() {
     akeys.innerHTML = '<div class="fc mb-4 field-row"><input type="text" placeholder="sk-xxx" class="fx1 aki" aria-label="上游 API Key"><label class="tg" title="启用 Key"><input type="checkbox" checked class="ake" aria-label="启用 Key"><span class="sl"></span></label><button class="icon-btn" onclick="copyRowVal(this)" title="复制 Key" aria-label="复制 Key"><i class="far fa-copy" aria-hidden="true"></i></button><button class="icon-btn" onclick="testNewAKey(this)" title="测试 Key" aria-label="测试 Key"><i class="fas fa-plug" aria-hidden="true"></i></button><button class="icon-btn" onclick="this.parentElement.remove()" title="移除 Key" aria-label="移除 Key"><i class="fas fa-times" aria-hidden="true"></i></button></div>';
   }
   if (amodels) {
-    amodels.innerHTML = '<div class="fc mb-4 field-row"><input type="text" placeholder="deepseek-chat" class="fx1 ami" aria-label="模型 ID"><label class="tg" title="启用模型"><input type="checkbox" checked class="ame" aria-label="启用模型"><span class="sl"></span></label><button class="icon-btn" onclick="copyRowVal(this)" title="复制模型 ID" aria-label="复制模型 ID"><i class="far fa-copy" aria-hidden="true"></i></button><button class="icon-btn" onclick="testNewMdl(this)" title="测试模型" aria-label="测试模型"><i class="fas fa-plug" aria-hidden="true"></i></button><button class="icon-btn" onclick="this.parentElement.remove()" title="移除模型" aria-label="移除模型"><i class="fas fa-times" aria-hidden="true"></i></button></div>';
+    amodels.innerHTML = '<div class="fc mb-4 field-row"><input type="text" placeholder="deepseek-chat" class="fx1 ami" aria-label="模型 ID"><label class="tg" title="启用模型"><input type="checkbox" checked class="ame" aria-label="启用模型"><span class="sl"></span></label><button class="icon-btn" onclick="testNewMdl(this)" title="测试模型" aria-label="测试模型"><i class="fas fa-plug" aria-hidden="true"></i></button><button class="icon-btn" onclick="this.parentElement.remove()" title="移除模型" aria-label="移除模型"><i class="fas fa-times" aria-hidden="true"></i></button></div>';
   }
   const amcl = document.getElementById('amcl');
   if (amcl) amcl.innerHTML = '';
@@ -1049,7 +1065,7 @@ function addMdlRow() {
   const c = document.getElementById('amodels')
   const d = document.createElement('div')
   d.className = 'fc mb-4 field-row'
-  d.innerHTML = '<input type="text" placeholder="deepseek-chat" class="fx1 ami" aria-label="模型 ID"><label class="tg"><input type="checkbox" checked class="ame" aria-label="启用模型"><span class="sl"></span></label><button class="icon-btn" onclick="copyRowVal(this)" title="复制模型 ID" aria-label="复制模型 ID"><i class="far fa-copy"></i></button><button class="icon-btn" onclick="testNewMdl(this)" title="测试模型" aria-label="测试模型"><i class="fas fa-plug"></i></button><button class="icon-btn" onclick="this.parentElement.remove()" title="移除模型" aria-label="移除模型"><i class="fas fa-times"></i></button>'
+  d.innerHTML = '<input type="text" placeholder="deepseek-chat" class="fx1 ami" aria-label="模型 ID"><label class="tg"><input type="checkbox" checked class="ame" aria-label="启用模型"><span class="sl"></span></label><button class="icon-btn" onclick="testNewMdl(this)" title="测试模型" aria-label="测试模型"><i class="fas fa-plug"></i></button><button class="icon-btn" onclick="this.parentElement.remove()" title="移除模型" aria-label="移除模型"><i class="fas fa-times"></i></button>'
   c.appendChild(d)
 }
 
@@ -1064,7 +1080,7 @@ function addMdlToForm(mid) {
   const c = document.getElementById('amodels')
   const d = document.createElement('div')
   d.className = 'fc mb-4 field-row'
-  d.innerHTML = '<input type="text" value="' + escapeHtml(mid) + '" class="fx1 ami" aria-label="模型 ID"><label class="tg"><input type="checkbox" checked class="ame" aria-label="启用模型"><span class="sl"></span></label><button class="icon-btn" onclick="copyRowVal(this)" title="复制模型 ID" aria-label="复制模型 ID"><i class="far fa-copy"></i></button><button class="icon-btn" onclick="testNewMdl(this)" title="测试模型" aria-label="测试模型"><i class="fas fa-plug"></i></button><button class="icon-btn" onclick="this.parentElement.remove()" title="移除模型" aria-label="移除模型"><i class="fas fa-times"></i></button>'
+  d.innerHTML = '<input type="text" value="' + escapeHtml(mid) + '" class="fx1 ami" aria-label="模型 ID"><label class="tg"><input type="checkbox" checked class="ame" aria-label="启用模型"><span class="sl"></span></label><button class="icon-btn" onclick="testNewMdl(this)" title="测试模型" aria-label="测试模型"><i class="fas fa-plug"></i></button><button class="icon-btn" onclick="this.parentElement.remove()" title="移除模型" aria-label="移除模型"><i class="fas fa-times"></i></button>'
   c.appendChild(d)
 }
 
@@ -1323,7 +1339,7 @@ function addMdl(id) {
   const d = document.createElement('div')
   d.className = 'fc mb-3 field-row model-single-row'
   d.dataset.idx = cnt
-  d.innerHTML = '<input type="text" value="' + escapeHtml(mid) + '" class="fx1 model-id-input" id="mid-' + escapeHtml(id) + '-' + cnt + '" placeholder="模型 ID"><span id="lat-' + escapeHtml(id) + '-' + cnt + '" class="latency-chip" title="点击图标测试延迟"><i class="fas fa-gauge-high"></i> <span class="lat-val">-- ms</span></span><label class="tg" title="启用模型"><input type="checkbox" checked id="men-' + escapeHtml(id) + '-' + cnt + '" onchange="markDirty(true)"><span class="sl"></span></label><button class="icon-btn" onclick="copyRowVal(this)" title="复制模型 ID" aria-label="复制模型 ID"><i class="far fa-copy"></i></button><button class="icon-btn test-mdl-btn" id="tm-' + escapeHtml(id) + '-' + cnt + '" title="单独测试模型延迟" aria-label="测试模型延迟"><i class="fas fa-gauge-high"></i></button><button class="icon-btn" id="rm-' + escapeHtml(id) + '-' + cnt + '" title="移除模型" aria-label="移除模型"><i class="fas fa-times"></i></button>'
+  d.innerHTML = '<input type="text" value="' + escapeHtml(mid) + '" class="fx1 model-id-input" id="mid-' + escapeHtml(id) + '-' + cnt + '" placeholder="模型 ID"><span id="lat-' + escapeHtml(id) + '-' + cnt + '" class="latency-chip" title="点击图标测试延迟"><i class="fas fa-gauge-high"></i> <span class="lat-val">-- ms</span></span><label class="tg" title="启用模型"><input type="checkbox" checked id="men-' + escapeHtml(id) + '-' + cnt + '" onchange="markDirty(true)"><span class="sl"></span></label><button class="icon-btn test-mdl-btn" id="tm-' + escapeHtml(id) + '-' + cnt + '" title="单独测试模型延迟" aria-label="测试模型延迟"><i class="fas fa-gauge-high"></i></button><button class="icon-btn" id="rm-' + escapeHtml(id) + '-' + cnt + '" title="移除模型" aria-label="移除模型"><i class="fas fa-times"></i></button>'
   c.appendChild(d)
   document.getElementById('tm-' + id + '-' + cnt).addEventListener('click', function() { testMdl(id, mid, cnt, this) })
   document.getElementById('rm-' + id + '-' + cnt).addEventListener('click', function() { rmMdl(id, cnt) })
@@ -1618,11 +1634,29 @@ function renderProviderList() {
         statusBadge +
         '<span id="lat-' + pId + '-' + mi + '" class="latency-chip" title="模型通信延迟"><i class="fas fa-gauge-high"></i> <span class="lat-val">-- ms</span></span>' +
         '<label class="tg" title="启用模型"><input type="checkbox" ' + (m.enabled !== false ? 'checked' : '') + ' id="men-' + pId + '-' + mi + '" onchange="markDirty(true)" aria-label="启用模型"><span class="sl"></span></label>' +
-        '<button class="icon-btn" onclick="copyRowVal(this)" title="复制模型 ID" aria-label="复制模型 ID"><i class="far fa-copy" aria-hidden="true"></i></button>' +
         '<button class="icon-btn test-mdl-btn" onclick="testMdlBtn(this)" data-pid="' + pId + '" data-mid="' + mId + '" data-idx="' + mi + '" title="单独测试模型延迟" aria-label="测试模型延迟"><i class="fas fa-gauge-high" aria-hidden="true"></i></button>' +
         '<button class="icon-btn" onclick="rmMdlBtn(this)" data-pid="' + pId + '" data-idx="' + mi + '" title="移除模型" aria-label="移除模型"><i class="fas fa-times" aria-hidden="true"></i></button>' +
         '</div>';
     }).join('');
+
+    var pStatusClass = '';
+    if (!modelsArr || modelsArr.length === 0) {
+      pStatusClass = 'pi-red';
+    } else {
+      var allDisabled = modelsArr.every(function(m) {
+        return m.enabled === false || !!m.permanentlyDisabled;
+      });
+      if (allDisabled) {
+        pStatusClass = 'pi-red';
+      } else {
+        var hasAbnormal = modelsArr.some(function(m) {
+          return m.enabled === false || !!m.permanentlyDisabled || (m.cooldownUntil && Date.now() < m.cooldownUntil);
+        });
+        if (hasAbnormal) {
+          pStatusClass = 'pi-yellow';
+        }
+      }
+    }
 
     var providerModelActions = '<div class="fc mb-3" style="gap:8px;flex-wrap:wrap;background:var(--color-paper);padding:8px 12px;border-radius:var(--radius-control);border:1px solid var(--color-rule);">' +
       '<button class="btn btn-s btn-xs" onclick="testAllModelsInProviderBtn(this)" data-pid="' + pId + '"><i class="fas fa-gauge-high"></i> 批量测模型延迟</button>' +
@@ -1636,7 +1670,7 @@ function renderProviderList() {
       ? '<button class="btn btn-s" onclick="fetchEditModelsBtn(this)" data-pid="' + pId + '"><i class="fas fa-download" aria-hidden="true"></i>获取模型</button>'
       : '';
 
-    return '<article class="pi" data-id="' + pId + '">' +
+    return '<article class="pi ' + pStatusClass + '" data-id="' + pId + '">' +
       '<div class="ps" onclick="togBtn(this)" data-pid="' + pId + '" role="button" tabindex="0" onkeydown="togKey(event,this)" aria-controls="dt-' + pId + '">' +
         '<div class="l"><i class="fas fa-chevron-right provider-chevron" aria-hidden="true" id="ch-' + pId + '"></i><span class="provider-avatar" aria-hidden="true">' + escapeHtml((pName.charAt(0) || 'A').toUpperCase()) + '</span><div><h3>' + pName + '</h3><div class="pu"><code>' + pId + '</code><span>' + (isAnthropic ? 'Anthropic' : 'OpenAI') + '</span><span>' + keysArr.length + ' Keys</span><span>' + modelsArr.length + ' 模型</span>' + abnormalBadge + '</div></div></div>' +
         '<div class="fc fx-s0" onclick="event.stopPropagation()"><label class="tg"><input type="checkbox" ' + (isEnabled ? 'checked' : '') + ' id="en-' + pId + '" onchange="togglePbBtn(this)" data-pid="' + pId + '" aria-label="启用 ' + pName + '"><span class="sl"></span></label><span class="bd ' + (isEnabled ? 'bd-on' : 'bd-off') + '">' + (isEnabled ? '已启用' : '未启用') + '</span></div>' +

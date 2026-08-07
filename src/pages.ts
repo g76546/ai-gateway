@@ -1,5 +1,5 @@
 import { Context } from 'hono'
-import { getProviders, getProxyKeys, getLogs, getDebugMode, getRequestTimeout } from './storage'
+import { getProviders, getProxyKeys, getLogs, getDebugMode, getRequestTimeout, getStreamTimeoutExtension } from './storage'
 import { SITE_CONFIG, OPENCODE_DEFAULT_URL } from './config'
 import type { Env } from './types'
 import { CSS_CONTENT } from './pages.css'
@@ -416,6 +416,7 @@ export async function renderAdminPage(c: Context<{ Bindings: Env }>) {
   const logs = await getLogs(c.env)
   const isDebug = await getDebugMode(c.env)
   const requestTimeout = await getRequestTimeout(c.env)
+  const isStreamTimeoutExt = await getStreamTimeoutExtension(c.env)
   const enabledProvidersCount = providers.filter((provider) => provider.enabled).length
   const modelsCount = providers.reduce((total, provider) => total + provider.models.length, 0)
   const enabledModelsCount = providers.reduce((total, provider) => total + provider.models.filter((model) => model.enabled).length, 0)
@@ -542,6 +543,10 @@ ${H('管理')}
               <input type="number" id="request-timeout-input" value="${requestTimeout}" min="5" max="300" class="admin-tool-input">
               <button class="btn btn-s btn-xs" onclick="saveRequestTimeout()">保存</button>
             </div>
+            <label class="admin-tool-item switch-label" style="cursor:pointer;" title="开启后，流式传输过程中每次收到新数据包时将自动续期超时计时，防止长文本输出因总时长超时断连">
+              <span class="admin-tool-label">流式超时续期</span>
+              <span class="tg"><input type="checkbox" id="stream-timeout-ext-toggle" ${isStreamTimeoutExt ? 'checked' : ''} onchange="toggleStreamTimeoutExtension(this.checked)"><span class="sl"></span></span>
+            </label>
             <label class="admin-tool-item switch-label" style="cursor:pointer;" title="调试模式开启：每条日志实时写入 KV 并前端实时刷新">
               <span class="admin-tool-label">调试模式 (实时落盘)</span>
               <span class="tg"><input type="checkbox" id="debug-mode-toggle" ${isDebug ? 'checked' : ''} onchange="toggleDebugMode(this.checked)"><span class="sl"></span></span>
@@ -1758,6 +1763,24 @@ async function saveRequestTimeout() {
       toast(json.message || '代理超时时间已保存', 'success');
     } else {
       toast(json.message || '保存失败', 'error');
+    }
+  } catch (err) {
+    toast('网络请求异常', 'error');
+  }
+}
+
+async function toggleStreamTimeoutExtension(checked) {
+  try {
+    var res = await fetch('/admin/api/config/stream-timeout-extension', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: checked })
+    });
+    var json = await res.json();
+    if (json.success) {
+      toast(json.message || '流式超时续期设置成功', 'success');
+    } else {
+      toast(json.message || '设置失败', 'error');
     }
   } catch (err) {
     toast('网络请求异常', 'error');

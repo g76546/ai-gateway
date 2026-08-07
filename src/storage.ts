@@ -31,6 +31,7 @@ let dynamicDebugMode: boolean | null = null
 
 // 动态超时秒数控制
 let cachedRequestTimeout: number | null = null
+let cachedStreamTimeoutExt: boolean | null = null
 
 export async function getRequestTimeout(env: Env): Promise<number> {
   if (cachedRequestTimeout !== null) return cachedRequestTimeout
@@ -49,6 +50,21 @@ export async function setRequestTimeout(env: Env, timeoutSec: number): Promise<v
   const sec = Math.max(5, Math.min(300, Math.floor(timeoutSec)))
   cachedRequestTimeout = sec
   await getKV(env).put(KV_KEYS.REQUEST_TIMEOUT, String(sec))
+}
+
+export async function getStreamTimeoutExtension(env: Env): Promise<boolean> {
+  if (cachedStreamTimeoutExt !== null) return cachedStreamTimeoutExt
+  const kvVal = await getKV(env).get(KV_KEYS.STREAM_TIMEOUT_EXTENSION)
+  if (kvVal !== null) {
+    cachedStreamTimeoutExt = kvVal === 'true'
+    return cachedStreamTimeoutExt
+  }
+  return true // 默认开启流式超时续期
+}
+
+export async function setStreamTimeoutExtension(env: Env, enabled: boolean): Promise<void> {
+  cachedStreamTimeoutExt = enabled
+  await getKV(env).put(KV_KEYS.STREAM_TIMEOUT_EXTENSION, enabled ? 'true' : 'false')
 }
 
 export function isDebugMode(env?: Env): boolean {

@@ -17,6 +17,8 @@ import {
   setDebugMode,
   getRequestTimeout,
   setRequestTimeout,
+  getStreamTimeoutExtension,
+  setStreamTimeoutExtension,
 } from './storage'
 import { testModelConnection } from './proxy'
 import { fetchOpenCodeModels, isOpenCodeProvider, resolveOpenCodeUrls, testOpenCodeModel } from './opencode'
@@ -448,6 +450,27 @@ export async function handleSetTimeout(c: Context<{ Bindings: Env }>) {
     success: true,
     data: { requestTimeout: sec },
     message: `单次代理请求超时时间已设置为 ${sec} 秒`,
+  })
+}
+
+export async function handleGetStreamTimeoutExtension(c: Context<{ Bindings: Env }>) {
+  const enabled = await getStreamTimeoutExtension(c.env)
+  return c.json<ApiResponse>({
+    success: true,
+    data: { enabled },
+  })
+}
+
+export async function handleSetStreamTimeoutExtension(c: Context<{ Bindings: Env }>) {
+  const body = await c.req.json<{ enabled: boolean }>().catch(() => ({ enabled: true }))
+  const enabled = !!body.enabled
+  await setStreamTimeoutExtension(c.env, enabled)
+  return c.json<ApiResponse>({
+    success: true,
+    data: { enabled },
+    message: enabled
+      ? '流式超时续期已开启：每次接收数据包自动延长超时倒计时'
+      : '流式超时续期已关闭：维持固定单次请求绝对超时',
   })
 }
 

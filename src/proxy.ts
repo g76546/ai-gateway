@@ -1,10 +1,52 @@
 import { Context } from 'hono'
-import { getProvider, getProviders, updateProvider, kvGet, kvPut, kvDelete, addRequestLog, getDebugMode, getRequestTimeout } from './storage'
+import { getProvider, getProviders, updateProvider, kvGet, kvPut, kvDelete, addRequestLog, getDebugMode, getRequestTimeout, getStreamTimeoutExtension } from './storage'
 import { KV_KEYS, KEY_HEALTH_COOLDOWN_MS, KEY_HEALTH_MAX_FAILURES } from './config'
 import type { Env, ProxyRequestBody } from './types'
 import { isOpenCodeProvider, proxyOpenCodeRequest, resolveOpenCodeUrls } from './opencode'
 import { detectPermanentFailure } from './models'
 import { selectAutoModel, recordBusinessLatency, getTierStorage, backfillTier1FromTier2 } from './tiers'
+
+function createTimeoutExtendedStream(
+  stream: ReadableStream<Uint8Array>,
+  idleTimeoutMs: number
+): ReadableStream<Uint8Array> {
+  const reader = stream.getReader()
+  let timer: ReturnType<typeof setTimeout> | null = null
+
+  return new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const resetTimer = () => {
+        if (timer) clearTimeout(timer)
+        timer = setTimeout(() => {
+          controller.error(new Error(`流式数据传输中断超时 (${Math.round(idleTimeoutMs / 1000)}s 未收到新数据包)`))
+          reader.cancel().catch(() => {})
+        }, idleTimeoutMs)
+      }
+
+      resetTimer()
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) {
+            if (timer) clearTimeout(timer)
+            controller.close()
+            break
+          }
+          resetTimer()
+          controller.enqueue(value)
+        }
+      } catch (err) {
+        if (timer) clearTimeout(timer)
+        controller.error(err)
+      }
+    },
+    cancel(reason) {
+      if (timer) clearTimeout(timer)
+      return reader.cancel(reason)
+    },
+  })
+}
 
 async function recordModelFailure(env: Env, providerId: string, modelId: string, status: number, errorMsg: string) {
   const provider = await getProvider(env, providerId)
@@ -427,12 +469,31 @@ async function executeSingleProxy(
         forwardHeaders['Authorization'] = `Bearer ${apiKey}`
       }
 
-      const response = await fetch(forwardUrl, {
-        method: c.req.method,
-        headers: forwardHeaders,
-        body: JSON.stringify(forwardBody),
-        signal: AbortSignal.timeout(timeoutMs),
-      })
+      const isStream = !!forwardBody.stream
+      const isStreamTimeoutExtEnabled = isStream ? await getStreamTimeoutExtension(c.env) : false
+
+      let response: Response
+      if (isStream && isStreamTimeoutExtEnabled) {
+        const controller = new AbortController()
+        const initTimer = setTimeout(() => controller.abort(new Error(`连接上游超时 (${requestTimeoutSec}s)`)), timeoutMs)
+        try {
+          response = await fetch(forwardUrl, {
+            method: c.req.method,
+            headers: forwardHeaders,
+            body: JSON.stringify(forwardBody),
+            signal: controller.signal,
+          })
+        } finally {
+          clearTimeout(initTimer)
+        }
+      } else {
+        response = await fetch(forwardUrl, {
+          method: c.req.method,
+          headers: forwardHeaders,
+          body: JSON.stringify(forwardBody),
+          signal: AbortSignal.timeout(timeoutMs),
+        })
+      }
 
       if (response.ok) {
         let resText: string | null = null
@@ -488,7 +549,13 @@ async function executeSingleProxy(
         }
         await recordLog(c.env, startTime, requestedModelLabel, response.status, null)
         await recordBusinessLatency(c.env, `${providerId}/${modelId}`, Date.now() - startTime, true, isAutoRequest, sessionId)
-        return new Response(resText !== null ? resText : response.body, {
+
+        let bodyStream: ReadableStream<Uint8Array> | string | null = resText !== null ? resText : response.body
+        if (isStream && isStreamTimeoutExtEnabled && response.body) {
+          bodyStream = createTimeoutExtendedStream(response.body, timeoutMs)
+        }
+
+        return new Response(bodyStream, {
           status: response.status,
           headers: responseHeaders,
         })

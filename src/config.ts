@@ -40,6 +40,7 @@ export const KV_KEYS = {
   REQUEST_LOGS: 'gateway:request_logs',
   DEBUG_MODE: 'config:debug_mode',
   REQUEST_TIMEOUT: 'config:request_timeout',
+  STREAM_TIMEOUT_EXTENSION: 'config:stream_timeout_extension',
   TIER_DATA: 'gateway:tier_data',
 } as const
 

@@ -24,6 +24,8 @@ import {
   handleGetDebugMode,
   handleToggleDebugMode,
   handleSetTimeout,
+  handleGetStreamTimeoutExtension,
+  handleSetStreamTimeoutExtension,
   handleRunProbe,
   handleResetCooldowns,
   handleFetchUpstreamModels,
@@ -129,6 +131,8 @@ app.delete('/admin/api/logs', handleClearLogs)
 app.get('/admin/api/debug-mode', handleGetDebugMode)
 app.post('/admin/api/debug-mode', handleToggleDebugMode)
 app.post('/admin/api/config/timeout', handleSetTimeout)
+app.get('/admin/api/config/stream-timeout-extension', handleGetStreamTimeoutExtension)
+app.post('/admin/api/config/stream-timeout-extension', handleSetStreamTimeoutExtension)
 
 // ===== API 转发路由（需转发 Key 验证） =====
 app.use('/v1/*', proxyKeyAuthMiddleware)

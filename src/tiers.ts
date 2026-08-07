@@ -30,6 +30,122 @@ export async function saveTierStorage(env: Env, data: TierStorage): Promise<void
 }
 
 /**
+ * 按照规则更新提供商模型的可连接性/冷却/失效状态
+ */
+export async function applyModelProbeResult(
+  env: Env,
+  providerId: string,
+  modelId: string,
+  success: boolean,
+  statusCode: number,
+  errorMsg: string
+): Promise<void> {
+  const provider = await getProvider(env, providerId)
+  if (!provider) return
+
+  let updated = false
+  const updatedModels = provider.models.map((m) => {
+    if (m.id !== modelId) return m
+    updated = true
+
+    if (success) {
+      return {
+        ...m,
+        cooldownUntil: null,
+        failureCount: 0,
+        permanentlyDisabled: false,
+        disabledReason: undefined,
+      }
+    } else {
+      const lowerMsg = (errorMsg || '').toLowerCase()
+      const isBadRequestParam = statusCode === 400 && (
+        lowerMsg.includes('parameter') ||
+        lowerMsg.includes('validation') ||
+        lowerMsg.includes('invalid') ||
+        lowerMsg.includes('unsupported')
+      )
+
+      const permReason = detectPermanentFailure(statusCode, errorMsg)
+
+      if (permReason) {
+        return {
+          ...m,
+          permanentlyDisabled: true,
+          disabledReason: permReason,
+        }
+      }
+
+      if (isBadRequestParam) {
+        return m
+      }
+
+      const newFailures = (m.failureCount || 0) + 1
+      if (newFailures >= 3) {
+        return {
+          ...m,
+          failureCount: newFailures,
+          permanentlyDisabled: true,
+          disabledReason: '探测连续失败达到3次，已标记永久失效',
+        }
+      }
+
+      return {
+        ...m,
+        failureCount: newFailures,
+        cooldownUntil: Date.now() + 5 * 60 * 1000,
+      }
+    }
+  })
+
+  if (updated) {
+    await updateProvider(env, providerId, { models: updatedModels })
+  }
+
+  // 如果没有探测锁冲突，且模型状态改变（比如变为永久失效，或者调试模式下第一梯队出错），同步更新梯队
+  if (!getIsProbeRunning()) {
+    const modelNowConfig = updatedModels.find((m) => m.id === modelId)
+    if (!modelNowConfig) return
+
+    const isPermDisabled = modelNowConfig.permanentlyDisabled === true
+    const actualDisabledReason = modelNowConfig.disabledReason || ''
+    const fullId = `${providerId}/${modelId}`
+
+    const debugMode = await getDebugMode(env)
+    let storage = await getTierStorage(env)
+
+    if (storage) {
+      let changed = false
+      const inTier1 = storage.tier1.some((m) => m.fullId === fullId)
+
+      if (isPermDisabled) {
+        storage.tier1 = storage.tier1.filter((m) => m.fullId !== fullId)
+        storage.tier2 = storage.tier2.filter((m) => m.fullId !== fullId)
+        changed = true
+        console.log(`[applyModelProbeResult] 永久失效模型 ${fullId} 已从第一、第二梯队踢出，原因: ${actualDisabledReason}`)
+      } else if (!success && debugMode && inTier1) {
+        console.log(`[applyModelProbeResult] [调试模式] 第一梯队模型 ${fullId} 调用异常(${statusCode})，立即实时剔除并补充备用模型`)
+        storage.tier1 = storage.tier1.filter((m) => m.fullId !== fullId)
+        const ref = { providerId, modelId, fullId, addedAt: Date.now() }
+        if (!storage.tier2.some((m) => m.fullId === fullId)) {
+          storage.tier2.push(ref)
+        }
+        changed = true
+      }
+
+      if (changed) {
+        storage.probeStats[fullId] = {
+          success,
+          latency: success ? 100 : 0,
+          lastTestedAt: Date.now(),
+          error: success ? undefined : `HTTP ${statusCode}: ${errorMsg}`,
+        }
+        await backfillTier1FromTier2(env, storage)
+      }
+    }
+  }
+}
+
+/**
  * 极低 Token 简短 Prompt 探测单模型
  * 独立探测链路，不产生用户业务日志，不记录用户业务延迟
  */
@@ -84,6 +200,8 @@ export async function runSingleModelProbe(
   }
 
   const latency = Date.now() - startTime
+
+  await applyModelProbeResult(env, provider.id, modelId, success, statusCode, errorMsg)
 
   return {
     latency: success ? latency : 9999,
@@ -483,9 +601,47 @@ export async function ensureTierStorage(env: Env): Promise<TierStorage> {
       // 跨日或已有前一日历史数据：以此作为基底，对梯队内模型执行一轮轻量探测并补位
       return await validateAndRebuildHistoryTier1(env, existing)
     }
+
+    // 重点：同步并清理系统中的全部可用/已删除/已停用模型，防止新模型或被删模型导致无法补位
+    const allModels = await getAllAvailableModels(env)
+    const availableSet = new Set(allModels.map((item) => item.fullId))
+
+    let changed = false
+    const now = Date.now()
+
+    // 1. 清除已不在可用列表中的模型（比如被删除、禁用、永久失效的模型）
+    const prevTier1Length = existing.tier1.length
+    existing.tier1 = existing.tier1.filter((m) => availableSet.has(m.fullId))
+    if (existing.tier1.length !== prevTier1Length) {
+      changed = true
+    }
+
+    const prevTier2Length = existing.tier2.length
+    existing.tier2 = existing.tier2.filter((m) => availableSet.has(m.fullId))
+    if (existing.tier2.length !== prevTier2Length) {
+      changed = true
+    }
+
+    // 2. 将新增的可用模型实时同步加入第二梯队
+    for (const item of allModels) {
+      const isInTier1 = existing.tier1.some((x) => x.fullId === item.fullId)
+      const isInTier2 = existing.tier2.some((x) => x.fullId === item.fullId)
+      if (!isInTier1 && !isInTier2) {
+        existing.tier2.push({
+          providerId: item.provider.id,
+          modelId: item.modelId,
+          fullId: item.fullId,
+          addedAt: now,
+        })
+        changed = true
+      }
+    }
+
     // 自动补位：如果今天内第一梯队席位不满 9 个，自动触发补位探测
     if (existing.tier1.length < TIER_1_MAX_SLOTS) {
       existing = await backfillTier1FromTier2(env, existing)
+    } else if (changed) {
+      await saveTierStorage(env, existing)
     }
     return existing
   }

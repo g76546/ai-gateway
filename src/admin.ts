@@ -25,7 +25,7 @@ import {
   detectPermanentFailure,
   autoClassifyModel,
 } from './models'
-import { ensureTierStorage, runInitCrossProbe } from './tiers'
+import { ensureTierStorage, runInitCrossProbe, applyModelProbeResult } from './tiers'
 import type {
   Env,
   ApiResponse,
@@ -180,6 +180,15 @@ export async function handleTestModel(c: Context<{ Bindings: Env }>) {
   const result = isOpenCodeProvider(provider.id)
     ? await testOpenCodeModel(provider.baseUrl, enabledKeys, modelId, resolveOpenCodeUrls(c.env))
     : await testModelConnection(provider.baseUrl, enabledKeys[0].key, modelId, provider.apiType)
+
+  await applyModelProbeResult(
+    c.env,
+    id,
+    modelId,
+    result.success,
+    result.statusCode || (result.success ? 200 : 500),
+    result.message || ''
+  )
 
   return c.json<ApiResponse>({
     success: true,

@@ -2,6 +2,7 @@ export interface Model {
   id: string
   enabled: boolean
   category?: '文本' | '绘图' | '多模态' | '其他' | string
+  isLongContext?: boolean
   failureCount?: number
   cooldownUntil?: number | null
   permanentlyDisabled?: boolean

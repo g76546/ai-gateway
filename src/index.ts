@@ -30,6 +30,8 @@ import {
   handleResetCooldowns,
   handleFetchUpstreamModels,
   handleImportModels,
+  handleBatchImportLongContextModels,
+  handleBatchImportTextModels,
   handleClearProviderModels,
   handleUpdateModelStatus,
   handleGetTiers,
@@ -119,6 +121,8 @@ app.post('/admin/api/reset-cooldowns', handleResetCooldowns)
 // 提供商模型配套操作
 app.post('/admin/api/providers/:id/fetch-models', handleFetchUpstreamModels)
 app.post('/admin/api/providers/:id/import-models', handleImportModels)
+app.post('/admin/api/models/batch-import-long-context', handleBatchImportLongContextModels)
+app.post('/admin/api/models/batch-import-text', handleBatchImportTextModels)
 app.delete('/admin/api/providers/:id/models', handleClearProviderModels)
 app.patch('/admin/api/providers/:id/models/:modelId', handleUpdateModelStatus)
 

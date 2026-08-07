@@ -486,7 +486,11 @@ ${H('管理')}
       <section id="providers" class="workspace-section" aria-labelledby="providers-title">
         <div class="section-heading section-heading--admin">
           <div><h2 id="providers-title">提供商</h2><p>管理上游地址、协议、API Key 和模型。</p></div>
-          <button class="btn btn-p" onclick="showAdd()"><i class="fas fa-plus" aria-hidden="true"></i>添加提供商</button>
+          <div class="fc" style="gap:var(--space-2xs);">
+            <button class="btn btn-s" onclick="batchImportTextModels()" title="一键选拔并启用所有文本/对话模型（DeepSeek/GPT/Claude/Qwen/Gemini等），并同步入梯队"><i class="fas fa-font" style="color:#2563eb;" aria-hidden="true"></i> 选拔文本模型</button>
+            <button class="btn btn-s" onclick="batchImportLongContextModels()" title="一键选拔并启用适合 18k+ 字符/大 Prompt 的 Flash/Pro/DeepSeek/Qwen 等高容量模型，并同步入梯队"><i class="fas fa-bolt" style="color:#eab308;" aria-hidden="true"></i> 选拔长文本模型</button>
+            <button class="btn btn-p" onclick="showAdd()"><i class="fas fa-plus" aria-hidden="true"></i>添加提供商</button>
+          </div>
         </div>
 
         <div class="af-w">
@@ -499,8 +503,8 @@ ${H('管理')}
             <div class="fg"><label for="aurl">API 地址</label><input type="url" id="aurl" placeholder="https://api.deepseek.com"></div>
             <div class="fg"><label for="afmt">API 格式</label><select id="afmt" class="select-sm"><option value="openai">OpenAI 兼容</option><option value="anthropic">Anthropic 兼容</option></select></div>
             <fieldset class="form-group"><legend>上游 API Keys</legend><div id="akeys"><div class="fc mb-4 field-row"><input type="text" placeholder="sk-xxx" class="fx1 aki" aria-label="上游 API Key"><label class="tg" title="启用 Key"><input type="checkbox" checked class="ake" aria-label="启用 Key"><span class="sl"></span></label><button class="icon-btn" onclick="testNewAKey(this)" title="测试 Key" aria-label="测试 Key"><i class="fas fa-plug" aria-hidden="true"></i></button><button class="icon-btn" onclick="this.parentElement.remove()" title="移除 Key" aria-label="移除 Key"><i class="fas fa-times" aria-hidden="true"></i></button></div></div><button class="btn btn-s btn-xs" onclick="addAKeyRow()"><i class="fas fa-plus" aria-hidden="true"></i>添加 Key</button></fieldset>
-            <aside id="amc" class="hd mdl-list-panel"><div class="panel-heading"><div><span class="panel-heading__mark"><i class="fas fa-cube" aria-hidden="true"></i></span><div><h3>可用模型</h3><p>点击“+”单条添加，或使用一键导入。</p></div></div><div class="fc" style="gap:var(--space-2xs);"><button class="btn btn-s btn-xs" onclick="importAllNewModels()" style="margin-right:8px;"><i class="fas fa-file-import" aria-hidden="true"></i> 一键导入</button><button class="icon-btn" type="button" onclick="hideMdlPanel('amc')" title="关闭可用模型" aria-label="关闭可用模型"><i class="fas fa-times" aria-hidden="true"></i></button></div></div><div id="amcl"></div></aside>
-            <fieldset class="form-group"><legend>模型 ID</legend><div id="amodels"><div class="fc mb-4 field-row"><input type="text" placeholder="deepseek-chat" class="fx1 ami" aria-label="模型 ID"><label class="tg" title="启用模型"><input type="checkbox" checked class="ame" aria-label="启用模型"><span class="sl"></span></label><button class="icon-btn" onclick="testNewMdl(this)" title="测试模型" aria-label="测试模型"><i class="fas fa-plug" aria-hidden="true"></i></button><button class="icon-btn" onclick="this.parentElement.remove()" title="移除模型" aria-label="移除模型"><i class="fas fa-times" aria-hidden="true"></i></button></div></div><div class="fc mt-1 field-row"><button class="btn btn-s btn-xs" onclick="addMdlRow()"><i class="fas fa-plus" aria-hidden="true"></i>添加模型</button><button class="btn btn-s btn-xs btn-d" onclick="clearAllNewModels()" style="margin-left:8px;"><i class="fas fa-trash" aria-hidden="true"></i>一键删除所有模型</button></div></fieldset>
+            <aside id="amc" class="hd mdl-list-panel"><div class="panel-heading"><div><span class="panel-heading__mark"><i class="fas fa-cube" aria-hidden="true"></i></span><div><h3>可用模型</h3><p>点击“+”单条添加，或使用快捷选拔导入。</p></div></div><div class="fc" style="gap:var(--space-2xs);"><button class="btn btn-s btn-xs" onclick="importTextNewModels()" style="margin-right:6px;"><i class="fas fa-font" style="color:#2563eb;" aria-hidden="true"></i> 选拔文本模型</button><button class="btn btn-s btn-xs" onclick="importLongContextNewModels()" style="margin-right:6px;"><i class="fas fa-bolt" style="color:#eab308;" aria-hidden="true"></i> 选拔长文本模型</button><button class="btn btn-s btn-xs" onclick="importAllNewModels()" style="margin-right:6px;"><i class="fas fa-file-import" aria-hidden="true"></i> 导入全部</button><button class="icon-btn" type="button" onclick="hideMdlPanel('amc')" title="关闭可用模型" aria-label="关闭可用模型"><i class="fas fa-times" aria-hidden="true"></i></button></div></div><div id="amcl"></div></aside>
+            <fieldset class="form-group"><legend>模型 ID</legend><div id="amodels"><div class="fc mb-4 field-row"><input type="text" placeholder="deepseek-chat" class="fx1 ami" aria-label="模型 ID"><label class="tg" title="启用模型"><input type="checkbox" checked class="ame" aria-label="启用模型"><span class="sl"></span></label><button class="icon-btn" onclick="testNewMdl(this)" title="测试模型" aria-label="测试模型"><i class="fas fa-plug" aria-hidden="true"></i></button><button class="icon-btn" onclick="this.parentElement.remove()" title="移除模型" aria-label="移除模型"><i class="fas fa-times" aria-hidden="true"></i></button></div></div><div class="fc mt-1 field-row"><button class="btn btn-s btn-xs" onclick="addMdlRow()"><i class="fas fa-plus" aria-hidden="true"></i>添加模型</button><button class="btn btn-s btn-xs" onclick="importTextNewModels()" style="margin-left:8px;" title="从已测试拉取的模型中一键选拔填入所有文本模型"><i class="fas fa-font" style="color:#2563eb;" aria-hidden="true"></i> 选拔文本模型</button><button class="btn btn-s btn-xs" onclick="importLongContextNewModels()" style="margin-left:8px;" title="从已测试拉取的模型中一键选拔填入所有长文本模型"><i class="fas fa-bolt" style="color:#eab308;" aria-hidden="true"></i> 选拔长文本模型</button><button class="btn btn-s btn-xs btn-d" onclick="clearAllNewModels()" style="margin-left:8px;"><i class="fas fa-trash" aria-hidden="true"></i>一键删除所有模型</button></div></fieldset>
             <div class="panel-actions"><label class="switch-label"><span>创建后立即启用</span><span class="tg"><input type="checkbox" checked id="aen"><span class="sl"></span></span></label><div><button class="btn btn-s" onclick="hideAdd()">取消</button><button class="btn btn-p" onclick="createProv()"><i class="fas fa-plus" aria-hidden="true"></i>暂存并添加</button></div></div>
             <div id="atestR" class="mt-1" aria-live="polite"></div>
           </div>
@@ -519,7 +523,7 @@ ${H('管理')}
               <div class="fg"><label>API 地址</label><input type="url" id="url-${escapePageHtml(p.id)}" value="${escapePageHtml(p.baseUrl)}"></div>
               <div class="fg"><label>API 格式</label><select id="at-${escapePageHtml(p.id)}" class="select-sm"><option value="openai" ${(p.apiType||'openai')==='openai'?'selected':''}>OpenAI 兼容</option><option value="anthropic" ${p.apiType==='anthropic'?'selected':''}>Anthropic 兼容</option></select></div>
               <fieldset class="form-group"><legend>上游 API Keys</legend><div id="keys-${escapePageHtml(p.id)}">${p.apiKeys.map((k, ki)=>`<div class="fc mb-3 field-row" data-kidx="${ki}"><input type="text" value="${escapePageHtml(k.key)}" class="fx1" id="k-${escapePageHtml(p.id)}-${ki}" placeholder="API Key" aria-label="API Key"><label class="tg"><input type="checkbox" ${k.enabled?'checked':''} id="ken-${escapePageHtml(p.id)}-${ki}" aria-label="启用 Key"><span class="sl"></span></label><button class="icon-btn" onclick="testKeyRow('${p.id}',${ki})" title="测试 Key" aria-label="测试 Key"><i class="fas fa-plug" aria-hidden="true"></i></button><button class="icon-btn" onclick="rmKeyRow('${p.id}',${ki})" title="移除 Key" aria-label="移除 Key"><i class="fas fa-times" aria-hidden="true"></i></button></div>`).join('')}</div><div class="fc mt-1 field-row"><input type="text" id="nk-${escapePageHtml(p.id)}" placeholder="新的 API Key" class="fx1"><button class="btn btn-s btn-xs" onclick="addKeyRow('${p.id}')"><i class="fas fa-plus" aria-hidden="true"></i>添加</button></div></fieldset>
-              <fieldset class="form-group"><legend>模型</legend><div id="ml-${escapePageHtml(p.id)}">${p.models.map((m,mi)=>`<div class="fc mb-3 field-row model-single-row" data-idx="${mi}"><input type="text" value="${escapePageHtml(m.id)}" class="fx1 model-id-input" id="mid-${escapePageHtml(p.id)}-${mi}" placeholder="模型 ID" title="${escapePageHtml(m.id)}" oninput="this.title=this.value"><div class="model-row-meta"><label class="tg" title="启用模型"><input type="checkbox" ${m.enabled?'checked':''} id="men-${escapePageHtml(p.id)}-${mi}" aria-label="启用模型"><span class="sl"></span></label><button class="icon-btn" onclick="testMdlBtn(this)" data-pid="${escapePageHtml(p.id)}" data-mid="${escapePageHtml(m.id)}" data-idx="${mi}" title="测试模型" aria-label="测试模型"><i class="fas fa-plug" aria-hidden="true"></i></button><button class="icon-btn" onclick="rmMdl('${p.id}',${mi})" title="移除模型" aria-label="移除模型"><i class="fas fa-times" aria-hidden="true"></i></button></div></div>`).join('')}</div><div class="fc mt-1 field-row"><input type="text" id="nmid-${escapePageHtml(p.id)}" placeholder="新的模型 ID" class="fx1"><button class="btn btn-s btn-xs" onclick="addMdl('${p.id}')"><i class="fas fa-plus" aria-hidden="true"></i>添加</button><button class="btn btn-s btn-xs btn-d" onclick="clearAllEditModels('${p.id}')" style="margin-left:8px;"><i class="fas fa-trash" aria-hidden="true"></i>一键删除模型</button></div></fieldset>
+              <fieldset class="form-group"><legend>模型</legend><div id="ml-${escapePageHtml(p.id)}">${p.models.map((m,mi)=>`<div class="fc mb-3 field-row model-single-row" data-idx="${mi}"><input type="text" value="${escapePageHtml(m.id)}" class="fx1 model-id-input" id="mid-${escapePageHtml(p.id)}-${mi}" placeholder="模型 ID" title="${escapePageHtml(m.id)}" oninput="this.title=this.value"><div class="model-row-meta"><label class="tg" title="启用模型"><input type="checkbox" ${m.enabled?'checked':''} id="men-${escapePageHtml(p.id)}-${mi}" aria-label="启用模型"><span class="sl"></span></label><button class="icon-btn" onclick="testMdlBtn(this)" data-pid="${escapePageHtml(p.id)}" data-mid="${escapePageHtml(m.id)}" data-idx="${mi}" title="测试模型" aria-label="测试模型"><i class="fas fa-plug" aria-hidden="true"></i></button><button class="icon-btn" onclick="rmMdl('${p.id}',${mi})" title="移除模型" aria-label="移除模型"><i class="fas fa-times" aria-hidden="true"></i></button></div></div>`).join('')}</div><div class="fc mt-1 field-row"><input type="text" id="nmid-${escapePageHtml(p.id)}" placeholder="新的模型 ID" class="fx1"><button class="btn btn-s btn-xs" onclick="addMdl('${p.id}')"><i class="fas fa-plus" aria-hidden="true"></i>添加</button><button class="btn btn-s btn-xs" onclick="importTextEditModelsBtn(this)" data-pid="${escapePageHtml(p.id)}" style="margin-left:8px;" title="将上游测试获取到的文本/对话推荐模型一次性选拔填入列表中"><i class="fas fa-font" style="color:#2563eb;" aria-hidden="true"></i> 选拔文本模型</button><button class="btn btn-s btn-xs" onclick="importLongContextEditModelsBtn(this)" data-pid="${escapePageHtml(p.id)}" style="margin-left:8px;" title="将上游测试获取到的长文本/大 Prompt 推荐模型一次性选拔填入列表中"><i class="fas fa-bolt" style="color:#eab308;" aria-hidden="true"></i> 选拔长文本模型</button><button class="btn btn-s btn-xs btn-d" onclick="clearAllEditModelsBtn(this)" data-pid="${escapePageHtml(p.id)}" style="margin-left:8px;"><i class="fas fa-trash" aria-hidden="true"></i>一键删除模型</button></div></fieldset>
               <div class="detail-actions"><div id="tr-${escapePageHtml(p.id)}" aria-live="polite"></div><div>${p.id === 'opencode' ? `<button class="btn btn-s" onclick="fetchEditModels('${escapePageHtml(p.id)}',this)"><i class="fas fa-download" aria-hidden="true"></i>获取模型</button>` : ''}<button class="btn btn-d" onclick="del('${p.id}')"><i class="fas fa-trash" aria-hidden="true"></i>删除</button><button class="btn btn-p" onclick="save('${p.id}')"><i class="fas fa-save" aria-hidden="true"></i>暂存更改</button></div></div>
             </div>
           </article>`).join('') : `<div class="empty-state"><i class="fas fa-server" aria-hidden="true"></i><h3>还没有提供商</h3><p>添加第一个上游提供商，配置 API 地址、Key 和模型。</p><button class="btn btn-p" onclick="showAdd()">添加提供商</button></div>`}
@@ -768,6 +772,26 @@ function fetchEditModelsBtn(btn) {
   if (pid) fetchEditModels(pid, btn);
 }
 
+function importTextEditModelsBtn(btn) {
+  var pid = btn.getAttribute('data-pid');
+  if (pid) importTextEditModels(pid);
+}
+
+function importLongContextEditModelsBtn(btn) {
+  var pid = btn.getAttribute('data-pid');
+  if (pid) importLongContextEditModels(pid);
+}
+
+function importAllEditModelsBtn(btn) {
+  var pid = btn.getAttribute('data-pid');
+  if (pid) importAllEditModels(pid);
+}
+
+function clearAllEditModelsBtn(btn) {
+  var pid = btn.getAttribute('data-pid');
+  if (pid) clearAllEditModels(pid);
+}
+
 function togBtn(btn) {
   var pid = btn.getAttribute('data-pid');
   if (pid) tog(pid);
@@ -896,7 +920,7 @@ function resetAddForm() {
     akeys.innerHTML = '<div class="fc mb-4 field-row"><input type="text" placeholder="sk-xxx" class="fx1 aki" aria-label="上游 API Key"><label class="tg" title="启用 Key"><input type="checkbox" checked class="ake" aria-label="启用 Key"><span class="sl"></span></label><button class="icon-btn" onclick="testNewAKey(this)" title="测试 Key" aria-label="测试 Key"><i class="fas fa-plug" aria-hidden="true"></i></button><button class="icon-btn" onclick="this.parentElement.remove()" title="移除 Key" aria-label="移除 Key"><i class="fas fa-times" aria-hidden="true"></i></button></div>';
   }
   if (amodels) {
-    amodels.innerHTML = '<div class="fc mb-4 field-row"><input type="text" placeholder="deepseek-chat" class="fx1 ami" aria-label="模型 ID"><label class="tg" title="启用模型"><input type="checkbox" checked class="ame" aria-label="启用模型"><span class="sl"></span></label><button class="icon-btn" onclick="testNewMdl(this)" title="测试模型" aria-label="测试模型"><i class="fas fa-plug" aria-hidden="true"></i></button><button class="icon-btn" onclick="this.parentElement.remove()" title="移除模型" aria-label="移除模型"><i class="fas fa-times" aria-hidden="true"></i></button></div>';
+    amodels.innerHTML = renderModelRowHtml('deepseek-chat', null, null, true);
   }
   const amcl = document.getElementById('amcl');
   if (amcl) amcl.innerHTML = '';
@@ -917,6 +941,150 @@ function addAKeyRow() {
   c.appendChild(d)
 }
 
+function checkIsLongContext(id) {
+  if (!id) return false;
+  if (!checkIsTextModel(id)) return false;
+  var lower = id.toLowerCase();
+  return lower.includes('flash') || lower.includes('pro') || lower.includes('long') || lower.includes('plus') || lower.includes('turbo') || lower.includes('max') ||
+    lower.includes('32k') || lower.includes('64k') || lower.includes('128k') || lower.includes('200k') || lower.includes('256k') || lower.includes('512k') || lower.includes('1m') || lower.includes('2m') ||
+    lower.includes('claude') || lower.includes('deepseek') || lower.includes('qwen') || lower.includes('intern') || lower.includes('seed') || lower.includes('gemini') ||
+    lower.includes('gpt-4') || lower.includes('gpt-3.5') || lower.includes('o1') || lower.includes('o3') || lower.includes('glm') || lower.includes('kimi') ||
+    lower.includes('moonshot') || lower.includes('minimax') || lower.includes('doubao') || lower.includes('yi') || lower.includes('step') || lower.includes('hunyuan') ||
+    lower.includes('baichuan') || lower.includes('llama') || lower.includes('mistral') || lower.includes('gemma') || lower.includes('coder') || lower.includes('reasoner') ||
+    lower.includes('r1') || lower.includes('v3') || lower.includes('latest');
+}
+
+function checkIsTextModel(id) {
+  if (!id) return false;
+  var lower = id.toLowerCase();
+  if (
+    lower.includes('embed') || lower.includes('rerank') || lower.includes('vector') ||
+    lower.includes('whisper') || lower.includes('tts') || lower.includes('speech') || lower.includes('audio') ||
+    lower.includes('dall-e') || lower.includes('sdxl') || lower.includes('flux') || lower.includes('midjourney') ||
+    lower.includes('stable-diffusion') || lower.includes('imagen') || lower.includes('sora') ||
+    lower.includes('cogvideo') || lower.includes('wanx') || lower.includes('ocr') || lower.includes('moderation')
+  ) return false;
+  return true;
+}
+
+function updateModelRowBadges(inp) {
+  if (!inp) return;
+  var val = inp.value.trim();
+  var row = inp.closest('.field-row, .model-single-row');
+  if (!row) return;
+  var meta = row.querySelector('.model-row-meta');
+  if (!meta) return;
+
+  var isText = checkIsTextModel(val);
+  var isLong = checkIsLongContext(val);
+
+  var textBadge = meta.querySelector('.mdl-text-badge');
+  if (isText && !textBadge) {
+    var span = document.createElement('span');
+    span.className = 'mdl-text-badge';
+    span.title = '标准文本/对话生成模型';
+    span.innerHTML = '<i class="fas fa-font" style="color:#2563eb;"></i> 文本模型';
+    var ref = meta.querySelector('.bd') || meta.querySelector('.latency-chip') || meta.querySelector('.tg');
+    if (ref) meta.insertBefore(span, ref);
+    else meta.appendChild(span);
+  } else if (!isText && textBadge) {
+    textBadge.remove();
+  }
+
+  var longBadge = meta.querySelector('.mdl-long-badge');
+  if (isLong && !longBadge) {
+    var span2 = document.createElement('span');
+    span2.className = 'mdl-long-badge';
+    span2.title = '具备 18k+ 字符/大 Prompt 上下文处理能力';
+    span2.innerHTML = '<i class="fas fa-bolt" style="color:#eab308;"></i> 长文本推荐';
+    var ref2 = meta.querySelector('.bd') || meta.querySelector('.latency-chip') || meta.querySelector('.tg');
+    if (ref2) meta.insertBefore(span2, ref2);
+    else meta.appendChild(span2);
+  } else if (!isLong && longBadge) {
+    longBadge.remove();
+  }
+}
+
+function removeModelRowBtn(btn) {
+  var row = btn.closest('.field-row, .model-single-row');
+  if (row) row.remove();
+}
+
+function renderModelRowHtml(mid, id, idx, isNewForm) {
+  var escapeMid = escapeHtml(mid || '');
+  var isText = checkIsTextModel(mid || '');
+  var isLong = checkIsLongContext(mid || '');
+  var textBadge = isText ? '<span class="mdl-text-badge" title="标准文本/对话生成模型"><i class="fas fa-font" style="color:#2563eb;"></i> 文本模型</span>' : '';
+  var longBadge = isLong ? '<span class="mdl-long-badge" title="具备 18k+ 字符/大 Prompt 上下文处理能力"><i class="fas fa-bolt" style="color:#eab308;"></i> 长文本推荐</span>' : '';
+
+  if (isNewForm) {
+    return '<div class="fc mb-3 field-row model-single-row">' +
+      '<input type="text" value="' + escapeMid + '" placeholder="deepseek-chat" class="fx1 ami model-id-input" aria-label="模型 ID" title="' + escapeMid + '" oninput="this.title=this.value;updateModelRowBadges(this)">' +
+      '<div class="model-row-meta">' +
+      '<select class="select-xs amc-cat" style="padding:2px 6px;font-size:11px;border-radius:4px;" title="修改分类"><option value="文本" selected>文本</option><option value="绘图">绘图</option><option value="多模态">多模态</option><option value="其他">其他</option></select>' +
+      textBadge + longBadge +
+      '<span class="bd bd-on" style="padding:2px 6px;font-size:11px;border-radius:4px;"><i class="fas fa-check-circle"></i> 正常</span>' +
+      '<label class="tg" title="启用模型"><input type="checkbox" checked class="ame" aria-label="启用模型"><span class="sl"></span></label>' +
+      '<button class="icon-btn" onclick="testNewMdl(this)" title="测试模型" aria-label="测试模型"><i class="fas fa-plug" aria-hidden="true"></i></button>' +
+      '<button class="icon-btn" onclick="removeModelRowBtn(this)" title="移除模型" aria-label="移除模型"><i class="fas fa-times" aria-hidden="true"></i></button>' +
+      '</div></div>';
+  }
+
+  var pidEsc = escapeHtml(id);
+  return '<div class="fc mb-3 field-row model-single-row" data-idx="' + idx + '">' +
+    '<input type="text" value="' + escapeMid + '" class="fx1 model-id-input" id="mid-' + pidEsc + '-' + idx + '" placeholder="模型 ID" title="' + escapeMid + '" oninput="this.title=this.value;updateModelRowBadges(this)">' +
+    '<div class="model-row-meta">' +
+    '<select class="select-xs" style="padding:2px 6px;font-size:11px;border-radius:4px;" onchange="updateModelCatBtn(this)" data-pid="' + pidEsc + '" data-mid="' + escapeMid + '" title="修改智能分类"><option value="文本" selected>文本</option><option value="绘图">绘图</option><option value="多模态">多模态</option><option value="其他">其他</option></select>' +
+    textBadge + longBadge +
+    '<span class="bd bd-on" style="padding:2px 6px;font-size:11px;border-radius:4px;"><i class="fas fa-check-circle"></i> 正常</span>' +
+    '<span id="lat-' + pidEsc + '-' + idx + '" class="latency-chip" title="模型通信延迟"><i class="fas fa-gauge-high"></i> <span class="lat-val">-- ms</span></span>' +
+    '<label class="tg" title="启用模型"><input type="checkbox" checked id="men-' + pidEsc + '-' + idx + '" onchange="markDirty(true)" aria-label="启用模型"><span class="sl"></span></label>' +
+    '<button class="icon-btn test-mdl-btn" onclick="testMdlBtn(this)" data-pid="' + pidEsc + '" data-mid="' + escapeMid + '" data-idx="' + idx + '" title="单独测试模型延迟" aria-label="测试模型延迟"><i class="fas fa-gauge-high" aria-hidden="true"></i></button>' +
+    '<button class="icon-btn" onclick="rmMdlBtn(this)" data-pid="' + pidEsc + '" data-idx="' + idx + '" title="移除模型" aria-label="移除模型"><i class="fas fa-times" aria-hidden="true"></i></button>' +
+    '</div></div>';
+}
+
+function addMdlFromBtn(btn) {
+  var pid = btn.getAttribute('data-pid');
+  var mid = btn.getAttribute('data-mid');
+  if (!mid) return;
+  if (pid) {
+    addMdlDirect(pid, mid);
+    const p = draftProviders.find(item => item.id === pid);
+    if (p) p.models = getMdl(pid);
+    markDirty(true);
+    toast('已成功将 [' + mid + '] 导入模型列表中！', 'success');
+  } else {
+    addMdlToForm(mid);
+    toast('已成功将 [' + mid + '] 导入模型列表中！', 'success');
+  }
+}
+
+function addMdlDirect(id, mid) {
+  if (!mid) return;
+  const c = document.getElementById('ml-' + id);
+  if (!c) return;
+
+  let maxIdx = -1;
+  c.querySelectorAll('[data-idx]').forEach(item => {
+    const idx = parseInt(item.dataset.idx || '-1', 10);
+    if (idx > maxIdx) maxIdx = idx;
+  });
+  const cnt = maxIdx + 1;
+  const d = document.createElement('div');
+  d.innerHTML = renderModelRowHtml(mid, id, cnt, false);
+  c.appendChild(d.firstElementChild || d);
+}
+
+function addMdlToFormDirect(mid) {
+  if (!mid) return;
+  const c = document.getElementById('amodels');
+  if (!c) return;
+  const d = document.createElement('div');
+  d.innerHTML = renderModelRowHtml(mid, null, null, true);
+  c.appendChild(d.firstElementChild || d);
+}
+
 function renderModelGrid(models, editId, providerId) {
   if (providerId === 'opencode') {
     models = (models || []).filter(function(m) {
@@ -927,21 +1095,204 @@ function renderModelGrid(models, editId, providerId) {
   var h = models.map(function(m) {
     var modelId = String(m.id || '')
     var safeId = escapeHtml(modelId)
-    return '<div class="mdl-item">' +
+    var isLong = checkIsLongContext(modelId)
+    var isText = checkIsTextModel(modelId)
+    var textBadge = isText ? '<span class="mdl-text-badge" title="标准文本/对话生成模型"><i class="fas fa-font" style="color:#2563eb;"></i> 文本模型</span>' : ''
+    var longBadge = isLong ? '<span class="mdl-long-badge" title="适合 18k+ 字符/大 Prompt 上下文"><i class="fas fa-bolt" style="color:#eab308;"></i> 长文本推荐</span>' : ''
+    return '<div class="mdl-item" title="' + safeId + '">' +
       '<i class="fas fa-cube"></i>' +
-      '<span class="fx1 cp ov" onclick="copyText(this)" data-copy="' + safeId + '">' + safeId + '</span>' +
-      '<button class="btn btn-gh btn-xs mdl-add-btn" onclick="addMdlFromBtn(this)" data-pid="' + escapeHtml(editId || '') + '" data-mid="' + safeId + '" title="添加到表单">+</button></div>'
+      '<span class="mdl-name cp" onclick="copyText(this)" data-copy="' + safeId + '">' + safeId + '</span>' +
+      textBadge +
+      longBadge +
+      '<button class="btn btn-gh btn-xs mdl-add-btn" onclick="addMdlFromBtn(this)" data-pid="' + escapeHtml(editId || '') + '" data-mid="' + safeId + '" data-istext="' + (isText ? 'true' : 'false') + '" data-islong="' + (isLong ? 'true' : 'false') + '" title="添加到表单"><i class="fas fa-plus"></i></button></div>'
   }).join('')
-  return '<div class="grid-2-gap6">' + h + '</div>'
+  return '<div class="mdl-grid">' + h + '</div>'
 }
 
 function modelPanelHeading(panelId, pid) {
-  var importBtn = pid ? '<button class="btn btn-s btn-xs" onclick="importAllEditModels(\\\'' + escapeHtml(pid) + '\\\')" style="margin-right:8px;"><i class="fas fa-file-import" aria-hidden="true"></i> 一键导入</button>' : '';
-  return '<div class="panel-heading"><div>' +
-    '<span class="panel-heading__mark"><i class="fas fa-cube" aria-hidden="true"></i></span>' +
-    '<div><h3>可用模型</h3><p>点击“+”单条添加，或使用一键导入。</p></div></div>' +
-    '<div class="fc" style="gap:var(--space-2xs);">' + importBtn +
-    '<button class="icon-btn" type="button" onclick="hideMdlPanelBtn(this)" data-panel="' + escapeHtml(panelId) + '" title="关闭可用模型" aria-label="关闭可用模型"><i class="fas fa-times" aria-hidden="true"></i></button></div></div>'
+  var importTextBtn = pid
+    ? '<button class="btn btn-s btn-xs" onclick="importTextEditModelsBtn(this)" data-pid="' + escapeHtml(pid) + '"><i class="fas fa-font" style="color:#2563eb;" aria-hidden="true"></i> 选拔文本模型</button>'
+    : '<button class="btn btn-s btn-xs" onclick="importTextNewModels()"><i class="fas fa-font" style="color:#2563eb;" aria-hidden="true"></i> 选拔文本模型</button>';
+  var importLongBtn = pid
+    ? '<button class="btn btn-s btn-xs" onclick="importLongContextEditModelsBtn(this)" data-pid="' + escapeHtml(pid) + '"><i class="fas fa-bolt" style="color:#eab308;" aria-hidden="true"></i> 选拔长文本模型</button>'
+    : '<button class="btn btn-s btn-xs" onclick="importLongContextNewModels()"><i class="fas fa-bolt" style="color:#eab308;" aria-hidden="true"></i> 选拔长文本模型</button>';
+  var importAllBtn = pid
+    ? '<button class="btn btn-s btn-xs" onclick="importAllEditModelsBtn(this)" data-pid="' + escapeHtml(pid) + '"><i class="fas fa-file-import" aria-hidden="true"></i> 导入全部</button>'
+    : '<button class="btn btn-s btn-xs" onclick="importAllNewModels()"><i class="fas fa-file-import" aria-hidden="true"></i> 导入全部</button>';
+
+  return '<div class="panel-heading">' +
+    '<div class="panel-heading-title"><span class="panel-heading__mark"><i class="fas fa-cube" aria-hidden="true"></i></span>' +
+    '<div><h3 style="white-space:nowrap;margin:0;">可用模型</h3><p style="margin:2px 0 0;">点击“+”单条添加，或使用快捷选拔功能。</p></div></div>' +
+    '<div class="panel-heading-actions">' + importTextBtn + importLongBtn + importAllBtn +
+    '<button class="icon-btn" type="button" onclick="hideMdlPanelBtn(this)" data-panel="' + escapeHtml(panelId) + '" title="关闭可用模型" aria-label="关闭可用模型"><i class="fas fa-times" aria-hidden="true"></i></button></div></div>';
+}
+
+function importTextNewModels() {
+  const btns = document.querySelectorAll('#amcl .mdl-add-btn');
+  if (btns.length === 0) {
+    toast('尚未获取可用模型，请先在上方输入 API Key 并点击【测试 Key】拉取上游模型', 'warning');
+    return;
+  }
+  const currentInputs = document.querySelectorAll('#amodels .ami');
+  const existingSet = new Set();
+  currentInputs.forEach(input => {
+    const v = input.value.trim();
+    if (v) existingSet.add(v);
+  });
+
+  let count = 0;
+  btns.forEach(btn => {
+    const mid = btn.getAttribute('data-mid');
+    const isText = btn.getAttribute('data-istext') === 'true' || checkIsTextModel(mid);
+    if (mid && isText && !existingSet.has(mid)) {
+      existingSet.add(mid);
+      addMdlToFormDirect(mid);
+      count++;
+    }
+  });
+
+  if (count > 0) {
+    toast('已成功选拔并填入 ' + count + ' 个标准文本/对话模型，直接点击下方【暂存并添加】即可保存！', 'success');
+  } else {
+    toast('已拉取的模型中包含的文本模型已全部存在于列表中', 'info');
+  }
+}
+
+async function importTextEditModels(pid) {
+  let container = document.getElementById('melc-' + pid);
+  let btns = container ? container.querySelectorAll('.mdl-add-btn') : [];
+
+  if (btns.length === 0) {
+    const keys = getKeys(pid);
+    if (keys.length > 0 && keys[0].key) {
+      toast('正在自动拉取上游可用模型列表...', 'info');
+      await fetchEditModels(pid, null);
+      container = document.getElementById('melc-' + pid);
+      btns = container ? container.querySelectorAll('.mdl-add-btn') : [];
+    }
+  }
+
+  if (btns.length === 0) {
+    toast('尚未获取可用模型，请先点击【测试 Key】或【获取模型】按钮拉取模型列表', 'warning');
+    return;
+  }
+
+  const currentModelInputs = document.querySelectorAll('#ml-' + pid + ' input[id^="mid-"]');
+  const existingSet = new Set();
+  currentModelInputs.forEach(inp => {
+    const val = inp.value.trim();
+    if (val) existingSet.add(val);
+  });
+
+  let count = 0;
+  btns.forEach(btn => {
+    const mid = btn.getAttribute('data-mid');
+    if (!mid) return;
+    const isText = btn.getAttribute('data-istext') === 'true' || checkIsTextModel(mid);
+    if (isText && !existingSet.has(mid)) {
+      existingSet.add(mid);
+      addMdlDirect(pid, mid);
+      count++;
+    }
+  });
+
+  if (count === 0) {
+    toast('已拉取的模型中包含的文本模型已全部存在于列表中', 'info');
+    return;
+  }
+
+  const p = draftProviders.find(item => item.id === pid);
+  if (p) {
+    p.models = getMdl(pid);
+    p.updatedAt = new Date().toISOString();
+  }
+
+  markDirty(true);
+  toast('已成功选拔并导入 ' + count + ' 个标准文本/对话模型到列表中！请点击【暂存更改】或【统一保存】！', 'success');
+}
+
+function importLongContextNewModels() {
+  const btns = document.querySelectorAll('#amcl .mdl-add-btn');
+  if (btns.length === 0) {
+    toast('尚未获取可用模型，请先在上方输入 API Key 并点击【测试 Key】拉取上游模型', 'warning');
+    return;
+  }
+  const currentInputs = document.querySelectorAll('#amodels .ami');
+  const existingSet = new Set();
+  currentInputs.forEach(input => {
+    const v = input.value.trim();
+    if (v) existingSet.add(v);
+  });
+
+  let count = 0;
+  btns.forEach(btn => {
+    const mid = btn.getAttribute('data-mid');
+    const isLong = btn.getAttribute('data-islong') === 'true' || checkIsLongContext(mid);
+    if (mid && isLong && !existingSet.has(mid)) {
+      existingSet.add(mid);
+      addMdlToFormDirect(mid);
+      count++;
+    }
+  });
+
+  if (count > 0) {
+    toast('已成功选拔并填入 ' + count + ' 个高容量长文本/大 Prompt 模型，直接点击下方【暂存并添加】即可保存！', 'success');
+  } else {
+    toast('已拉取的模型中包含的长文本模型已全部存在于列表中', 'info');
+  }
+}
+
+async function importLongContextEditModels(pid) {
+  let container = document.getElementById('melc-' + pid);
+  let btns = container ? container.querySelectorAll('.mdl-add-btn') : [];
+
+  if (btns.length === 0) {
+    const keys = getKeys(pid);
+    if (keys.length > 0 && keys[0].key) {
+      toast('正在自动拉取上游可用模型列表...', 'info');
+      await fetchEditModels(pid, null);
+      container = document.getElementById('melc-' + pid);
+      btns = container ? container.querySelectorAll('.mdl-add-btn') : [];
+    }
+  }
+
+  if (btns.length === 0) {
+    toast('尚未获取可用模型，请先点击【测试 Key】或【获取模型】按钮拉取模型列表', 'warning');
+    return;
+  }
+
+  const currentModelInputs = document.querySelectorAll('#ml-' + pid + ' input[id^="mid-"]');
+  const existingSet = new Set();
+  currentModelInputs.forEach(inp => {
+    const val = inp.value.trim();
+    if (val) existingSet.add(val);
+  });
+
+  let count = 0;
+  btns.forEach(btn => {
+    const mid = btn.getAttribute('data-mid');
+    if (!mid) return;
+    const isLong = btn.getAttribute('data-islong') === 'true' || checkIsLongContext(mid);
+    if (isLong && !existingSet.has(mid)) {
+      existingSet.add(mid);
+      addMdlDirect(pid, mid);
+      count++;
+    }
+  });
+
+  if (count === 0) {
+    toast('已拉取的模型中包含的长文本模型已全部存在于列表中', 'info');
+    return;
+  }
+
+  const p = draftProviders.find(item => item.id === pid);
+  if (p) {
+    p.models = getMdl(pid);
+    p.updatedAt = new Date().toISOString();
+  }
+
+  markDirty(true);
+  toast('已成功选拔并导入 ' + count + ' 个高容量长文本/大 Prompt 模型到列表中！请点击【暂存更改】或【统一保存】！', 'success');
 }
 
 function importAllNewModels() {
@@ -950,58 +1301,79 @@ function importAllNewModels() {
     toast('无可用模型可导入', 'warning');
     return;
   }
+  const currentInputs = document.querySelectorAll('#amodels .ami');
+  const existingSet = new Set();
+  currentInputs.forEach(input => {
+    const v = input.value.trim();
+    if (v) existingSet.add(v);
+  });
+
   let count = 0;
   btns.forEach(btn => {
     const mid = btn.getAttribute('data-mid');
-    if (mid) {
-      const inputs = document.querySelectorAll('#amodels .ami');
-      let exists = false;
-      for (const input of Array.from(inputs)) {
-        if (input.value.trim() === mid.trim()) {
-          exists = true;
-          break;
-        }
-      }
-      if (!exists) {
-        addMdlToForm(mid);
-        count++;
-      }
+    if (mid && !existingSet.has(mid)) {
+      existingSet.add(mid);
+      addMdlToFormDirect(mid);
+      count++;
     }
   });
-  toast('成功导入 ' + count + ' 个模型' + (count < btns.length ? '（已自动过滤重复项）' : ''), 'success');
+
+  if (count > 0) {
+    toast('成功导入 ' + count + ' 个模型' + (count < btns.length ? '（已自动过滤重复项）' : ''), 'success');
+  } else {
+    toast('拉取的模型已全部存在于列表中', 'info');
+  }
 }
 
-function importAllEditModels(pid) {
-  const container = document.getElementById('melc-' + pid);
-  if (!container) return;
-  const btns = container.querySelectorAll('.mdl-add-btn');
+async function importAllEditModels(pid) {
+  let container = document.getElementById('melc-' + pid);
+  let btns = container ? container.querySelectorAll('.mdl-add-btn') : [];
+
+  if (btns.length === 0) {
+    const keys = getKeys(pid);
+    if (keys.length > 0 && keys[0].key) {
+      toast('正在自动拉取上游可用模型列表...', 'info');
+      await fetchEditModels(pid, null);
+      container = document.getElementById('melc-' + pid);
+      btns = container ? container.querySelectorAll('.mdl-add-btn') : [];
+    }
+  }
+
   if (btns.length === 0) {
     toast('无可用模型可导入', 'warning');
     return;
   }
+
+  const currentModelInputs = document.querySelectorAll('#ml-' + pid + ' input[id^="mid-"]');
+  const existingSet = new Set();
+  currentModelInputs.forEach(inp => {
+    const val = inp.value.trim();
+    if (val) existingSet.add(val);
+  });
+
   let count = 0;
   btns.forEach(btn => {
     const mid = btn.getAttribute('data-mid');
-    if (mid) {
-      const inputs = document.querySelectorAll('#ml-' + pid + ' input.fx1');
-      let exists = false;
-      for (const input of Array.from(inputs)) {
-        if (input.value.trim() === mid.trim()) {
-          exists = true;
-          break;
-        }
-      }
-      if (!exists) {
-        const inp = document.getElementById('nmid-' + pid);
-        if (inp) {
-          inp.value = mid;
-          addMdl(pid);
-        }
-        count++;
-      }
+    if (mid && !existingSet.has(mid)) {
+      existingSet.add(mid);
+      addMdlDirect(pid, mid);
+      count++;
     }
   });
-  toast('成功导入 ' + count + ' 个模型' + (count < btns.length ? '（已自动过滤重复项）' : ''), 'success');
+
+  if (count === 0) {
+    toast('拉取的模型已全部存在于列表中', 'info');
+    return;
+  }
+
+  const p = draftProviders.find(item => item.id === pid);
+  if (p) {
+    p.models = getMdl(pid);
+    p.updatedAt = new Date().toISOString();
+  }
+
+  markDirty(true);
+  toast('已成功导入 ' + count + ' 个模型到列表中！请点击【暂存更改】或【统一保存】！', 'success');
 }
 
 function clearAllNewModels() {
@@ -1050,11 +1422,11 @@ async function testNewAKey(btn) {
 }
 
 function addMdlRow() {
-  const c = document.getElementById('amodels')
-  const d = document.createElement('div')
-  d.className = 'fc mb-4 field-row'
-  d.innerHTML = '<input type="text" placeholder="deepseek-chat" class="fx1 ami" aria-label="模型 ID"><label class="tg"><input type="checkbox" checked class="ame" aria-label="启用模型"><span class="sl"></span></label><button class="icon-btn" onclick="testNewMdl(this)" title="测试模型" aria-label="测试模型"><i class="fas fa-plug"></i></button><button class="icon-btn" onclick="this.parentElement.remove()" title="移除模型" aria-label="移除模型"><i class="fas fa-times"></i></button>'
-  c.appendChild(d)
+  const c = document.getElementById('amodels');
+  if (!c) return;
+  const d = document.createElement('div');
+  d.innerHTML = renderModelRowHtml('', null, null, true);
+  c.appendChild(d.firstElementChild || d);
 }
 
 function addMdlToForm(mid) {
@@ -1065,11 +1437,11 @@ function addMdlToForm(mid) {
       return;
     }
   }
-  const c = document.getElementById('amodels')
-  const d = document.createElement('div')
-  d.className = 'fc mb-4 field-row'
-  d.innerHTML = '<input type="text" value="' + escapeHtml(mid) + '" class="fx1 ami" aria-label="模型 ID"><label class="tg"><input type="checkbox" checked class="ame" aria-label="启用模型"><span class="sl"></span></label><button class="icon-btn" onclick="testNewMdl(this)" title="测试模型" aria-label="测试模型"><i class="fas fa-plug"></i></button><button class="icon-btn" onclick="this.parentElement.remove()" title="移除模型" aria-label="移除模型"><i class="fas fa-times"></i></button>'
-  c.appendChild(d)
+  const c = document.getElementById('amodels');
+  if (!c) return;
+  const d = document.createElement('div');
+  d.innerHTML = renderModelRowHtml(mid, null, null, true);
+  c.appendChild(d.firstElementChild || d);
 }
 
 async function testNewMdl(btn) {
@@ -1126,9 +1498,13 @@ function createProv() {
         return null;
       }
       seenModels.add(mid);
-      var ameEl = inp.parentElement ? inp.parentElement.querySelector('.ame') : null;
+      var row = inp.closest('.field-row, .model-single-row');
+      var ameEl = row ? row.querySelector('.ame') : null;
+      var catEl = row ? row.querySelector('.amc-cat') : null;
       var en = ameEl ? ameEl.checked : true;
-      return { id: mid, enabled: en };
+      var cat = catEl ? catEl.value : '文本';
+      var isLong = checkIsLongContext(mid);
+      return { id: mid, enabled: en, category: cat, isLongContext: isLong };
     }).filter(Boolean);
     var enabled = document.getElementById('aen').checked;
 
@@ -1289,10 +1665,19 @@ function getMdl(id) {
   if (!c) return []
   const items = c.querySelectorAll('[data-idx]')
   const seen = new Set()
+  const existingP = draftProviders.find(function(p) { return p.id === id; })
+  const existingModelsMap = new Map()
+  if (existingP && Array.isArray(existingP.models)) {
+    existingP.models.forEach(function(m) {
+      if (m && m.id) existingModelsMap.set(m.id, m)
+    })
+  }
+
   return Array.from(items).map(item => {
     const idx = parseInt(item.dataset.idx)
     const inp = document.getElementById('mid-' + id + '-' + idx)
     const chk = document.getElementById('men-' + id + '-' + idx)
+    const catSel = item.querySelector('select')
     const mid = inp ? inp.value.trim() : ''
     if (!mid) return null
     if (seen.has(mid)) {
@@ -1301,13 +1686,21 @@ function getMdl(id) {
     }
     seen.add(mid)
     const en = chk ? chk.checked : true
-    return { id: mid, enabled: en }
+    const cat = catSel ? catSel.value : '文本'
+    const isLong = checkIsLongContext(mid)
+    const prevM = existingModelsMap.get(mid) || {}
+    return Object.assign({}, prevM, {
+      id: mid,
+      enabled: en,
+      category: cat,
+      isLongContext: isLong
+    })
   }).filter(Boolean)
 }
 
 function addMdl(id) {
-  const inp = document.getElementById('nmid-' + id), mid = inp ? inp.value.trim() : ''
-  if (!mid) { toast('请输入模型 ID', 'error'); return }
+  const inp = document.getElementById('nmid-' + id), mid = inp ? inp.value.trim() : '';
+  if (!mid) { toast('请输入模型 ID', 'error'); return; }
   
   // Check duplicate
   const inputs = document.querySelectorAll('#ml-' + id + ' input[id^="mid-"]');
@@ -1319,28 +1712,26 @@ function addMdl(id) {
     }
   }
 
-  const c = document.getElementById('ml-' + id)
-  let maxIdx = -1
+  const c = document.getElementById('ml-' + id);
+  if (!c) return;
+  let maxIdx = -1;
   c.querySelectorAll('[data-idx]').forEach(item => {
-    const idx = parseInt(item.dataset.idx || '-1', 10)
-    if (idx > maxIdx) maxIdx = idx
-  })
-  const cnt = maxIdx + 1
-  const d = document.createElement('div')
-  d.className = 'fc mb-3 field-row model-single-row'
-  d.dataset.idx = cnt
-  d.innerHTML = '<input type="text" value="' + escapeHtml(mid) + '" class="fx1 model-id-input" id="mid-' + escapeHtml(id) + '-' + cnt + '" placeholder="模型 ID" title="' + escapeHtml(mid) + '" oninput="this.title=this.value">' +
-    '<div class="model-row-meta">' +
-    '<span id="lat-' + escapeHtml(id) + '-' + cnt + '" class="latency-chip" title="点击图标测试延迟"><i class="fas fa-gauge-high"></i> <span class="lat-val">-- ms</span></span>' +
-    '<label class="tg" title="启用模型"><input type="checkbox" checked id="men-' + escapeHtml(id) + '-' + cnt + '" onchange="markDirty(true)"><span class="sl"></span></label>' +
-    '<button class="icon-btn test-mdl-btn" id="tm-' + escapeHtml(id) + '-' + cnt + '" title="单独测试模型延迟" aria-label="测试模型延迟"><i class="fas fa-gauge-high"></i></button>' +
-    '<button class="icon-btn" id="rm-' + escapeHtml(id) + '-' + cnt + '" title="移除模型" aria-label="移除模型"><i class="fas fa-times"></i></button>' +
-    '</div>'
-  c.appendChild(d)
-  document.getElementById('tm-' + id + '-' + cnt).addEventListener('click', function() { testMdl(id, mid, cnt, this) })
-  document.getElementById('rm-' + id + '-' + cnt).addEventListener('click', function() { rmMdl(id, cnt) })
-  inp.value = ''
-  markDirty(true)
+    const idx = parseInt(item.dataset.idx || '-1', 10);
+    if (idx > maxIdx) maxIdx = idx;
+  });
+  const cnt = maxIdx + 1;
+  const d = document.createElement('div');
+  d.innerHTML = renderModelRowHtml(mid, id, cnt, false);
+  const row = d.firstElementChild || d;
+  c.appendChild(row);
+
+  const tmBtn = row.querySelector('.test-mdl-btn');
+  if (tmBtn) tmBtn.addEventListener('click', function() { testMdl(id, mid, cnt, this); });
+  const rmBtn = row.querySelector('#rm-' + id + '-' + cnt);
+  if (rmBtn) rmBtn.addEventListener('click', function() { rmMdl(id, cnt); });
+
+  inp.value = '';
+  markDirty(true);
 }
 
 function rmMdl(id, idx) {
@@ -1616,6 +2007,17 @@ function renderProviderList() {
         statusBadge = '<span class="bd bd-off" style="padding:2px 6px;font-size:11px;border-radius:4px;"><i class="fas fa-minus-circle"></i> 已禁用</span>';
       }
 
+      var isText = checkIsTextModel(mId);
+      var textBadge = isText
+        ? '<span class="mdl-text-badge" title="标准文本/对话生成模型"><i class="fas fa-font" style="color:#2563eb;"></i> 文本模型</span>'
+        : '';
+
+      var isLong = !!m.isLongContext || checkIsLongContext(mId);
+
+      var longBadge = isLong
+        ? '<span class="mdl-long-badge" title="具备 18k+ 字符/大 Prompt 上下文处理能力"><i class="fas fa-bolt" style="color:#eab308;"></i> 长文本推荐</span>'
+        : '';
+
       var catSelect = '<select class="select-xs" style="padding:2px 6px;font-size:11px;border-radius:4px;" onchange="updateModelCatBtn(this)" data-pid="' + pId + '" data-mid="' + mId + '" title="修改智能分类">' +
         '<option value="文本" ' + (mCat === '文本' ? 'selected' : '') + '>文本</option>' +
         '<option value="绘图" ' + (mCat === '绘图' ? 'selected' : '') + '>绘图</option>' +
@@ -1624,9 +2026,11 @@ function renderProviderList() {
         '</select>';
 
       return '<div class="fc field-row model-single-row" data-idx="' + mi + '">' +
-        '<input type="text" value="' + mId + '" class="fx1 model-id-input" id="mid-' + pId + '-' + mi + '" placeholder="模型 ID" title="' + mId + '" oninput="this.title=this.value">' +
+        '<input type="text" value="' + mId + '" class="fx1 model-id-input" id="mid-' + pId + '-' + mi + '" placeholder="模型 ID" title="' + mId + '" oninput="this.title=this.value;updateModelRowBadges(this)">' +
         '<div class="model-row-meta">' +
         catSelect +
+        textBadge +
+        longBadge +
         statusBadge +
         '<span id="lat-' + pId + '-' + mi + '" class="latency-chip" title="模型通信延迟"><i class="fas fa-gauge-high"></i> <span class="lat-val">-- ms</span></span>' +
         '<label class="tg" title="启用模型"><input type="checkbox" ' + (m.enabled !== false ? 'checked' : '') + ' id="men-' + pId + '-' + mi + '" onchange="markDirty(true)" aria-label="启用模型"><span class="sl"></span></label>' +
@@ -1787,6 +2191,27 @@ async function toggleStreamTimeoutExtension(checked) {
   }
 }
 
+async function batchImportLongContextModels() {
+  if (!(await cM('确定要一键选拔并启用所有适合长文本/大 Prompt (如 Flash/Pro/DeepSeek/Qwen/Intern 等) 的高容量模型吗？\\n\\n启用后系统将自动将其选拔更新同步入梯队！'))) {
+    return;
+  }
+  try {
+    var res = await fetch('/admin/api/models/batch-import-long-context', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    var json = await res.json();
+    if (json.success) {
+      toast(json.message || '选拔导入成功！', 'success');
+      setTimeout(function() { window.location.reload(); }, 1200);
+    } else {
+      toast(json.message || '操作失败', 'error');
+    }
+  } catch (err) {
+    toast('网络请求异常', 'error');
+  }
+}
+
 async function toggleDebugMode(checked) {
   try {
     var res = await fetch('/admin/api/debug-mode', {
@@ -1910,6 +2335,50 @@ async function resetCooldowns() {
     }
   } catch (err) {
     aM('请求网络异常：' + ((err && err.message) || String(err)), 'error');
+  }
+}
+
+async function batchImportTextModels() {
+  if (!(await cM('确定要一键选拔并启用所有标准文本/对话模型 (如 DeepSeek/GPT/Claude/Qwen/Gemini 等) 吗？<br><br>启用后系统将自动更新并同步入梯队！'))) {
+    return;
+  }
+  try {
+    toast('正在挑选并启用所有标准文本模型...', 'info');
+    var res = await fetch('/admin/api/models/batch-import-text', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    var data = await res.json();
+    if (data.success) {
+      toast(data.message || '一键选拔文本模型成功！', 'success');
+      setTimeout(function() { window.location.reload(); }, 1200);
+    } else {
+      aM(data.message || '选拔失败', 'error');
+    }
+  } catch (err) {
+    aM('网络请求异常：' + ((err && err.message) || String(err)), 'error');
+  }
+}
+
+async function batchImportLongContextModels() {
+  if (!(await cM('确定要一键选拔并启用所有适合长文本/大 Prompt 的模型 (如 Flash/Pro/DeepSeek/Qwen 等) 吗？<br><br>启用后系统将自动更新并同步入梯队！'))) {
+    return;
+  }
+  try {
+    toast('正在挑选并启用长文本模型...', 'info');
+    var res = await fetch('/admin/api/models/batch-import-long-context', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    var data = await res.json();
+    if (data.success) {
+      toast(data.message || '一键选拔长文本模型成功！', 'success');
+      setTimeout(function() { window.location.reload(); }, 1200);
+    } else {
+      aM(data.message || '选拔失败', 'error');
+    }
+  } catch (err) {
+    aM('网络请求异常：' + ((err && err.message) || String(err)), 'error');
   }
 }
 
@@ -2061,6 +2530,7 @@ async function updateModelCat(providerId, modelId, category) {
   } catch (err) {}
 }
 
+renderProviderList();
 fetchLogs();
 </script>
 </body></html>`)

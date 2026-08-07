@@ -28,6 +28,10 @@ import {
   resetAllCooldowns,
   detectPermanentFailure,
   autoClassifyModel,
+  isLongContextModel,
+  isTextModel,
+  batchEnableLongContextModels,
+  batchEnableTextModels,
 } from './models'
 import { ensureTierStorage, runInitCrossProbe } from './tiers'
 import type {
@@ -471,6 +475,35 @@ export async function handleSetStreamTimeoutExtension(c: Context<{ Bindings: Env
     message: enabled
       ? '流式超时续期已开启：每次接收数据包自动延长超时倒计时'
       : '流式超时续期已关闭：维持固定单次请求绝对超时',
+  })
+}
+
+export async function handleBatchImportLongContextModels(c: Context<{ Bindings: Env }>) {
+  const result = await batchEnableLongContextModels(c.env)
+  if (result.enabledCount > 0) {
+    // 自动更新梯队并为第一/第二梯队候选池补位
+    await ensureTierStorage(c.env)
+  }
+  return c.json<ApiResponse>({
+    success: true,
+    data: result,
+    message: result.enabledCount > 0
+      ? `成功一键选拔并启用 ${result.enabledCount} 个适合长文本/大 Prompt 的高容量模型，并已自动同步入梯队候选池！`
+      : '所有适合长文本/大 Prompt 的模型已处于启用状态。',
+  })
+}
+
+export async function handleBatchImportTextModels(c: Context<{ Bindings: Env }>) {
+  const result = await batchEnableTextModels(c.env)
+  if (result.enabledCount > 0) {
+    await ensureTierStorage(c.env)
+  }
+  return c.json<ApiResponse>({
+    success: true,
+    data: result,
+    message: result.enabledCount > 0
+      ? `成功一键选拔并启用 ${result.enabledCount} 个标准文本/对话模型，并已自动同步入梯队候选池！`
+      : '所有标准文本/对话模型已处于启用状态。',
   })
 }
 

@@ -473,13 +473,17 @@ export async function backfillTier1FromTier2(
  * 确保梯队数据就绪（初始化/校验）
  */
 export async function ensureTierStorage(env: Env): Promise<TierStorage> {
-  const existing = await getTierStorage(env)
+  let existing = await getTierStorage(env)
   if (existing && Array.isArray(existing.tier1) && existing.tier1.length > 0) {
     // 存在历史 Tier 1 数据
     const today = new Date().toISOString().split('T')[0]
     if (existing.lastProbeDate !== today) {
       // 跨日或已有前一日历史数据：以此作为基底，对梯队内模型执行一轮轻量探测并补位
       return await validateAndRebuildHistoryTier1(env, existing)
+    }
+    // 自动补位：如果今天内第一梯队席位不满 9 个，自动触发补位探测
+    if (existing.tier1.length < TIER_1_MAX_SLOTS) {
+      existing = await backfillTier1FromTier2(env, existing)
     }
     return existing
   }
@@ -519,7 +523,8 @@ export function isLongContextModel(modelId: string): boolean {
 export async function selectAutoModel(
   env: Env,
   isLongText: boolean = false,
-  sessionId: string | null = null
+  sessionId: string | null = null,
+  excludedProviderIds?: Set<string>
 ): Promise<{ providerId: string; modelId: string; fullId: string } | null> {
   const storage = await ensureTierStorage(env)
 
@@ -529,13 +534,21 @@ export async function selectAutoModel(
   // 过滤第一梯队中当前可用的模型
   let activeTier1 = storage.tier1.filter((m) => modelMap.has(m.fullId))
 
-  if (activeTier1.length === 0) {
-    // 若第一梯队全部模型不可用，尝试补位
+  if (activeTier1.length === 0 || storage.tier1.length < TIER_1_MAX_SLOTS) {
+    // 若第一梯队全部模型不可用，或第一梯队不满 9 席，尝试补位
     const backfilled = await backfillTier1FromTier2(env, storage)
     activeTier1 = backfilled.tier1.filter((m) => modelMap.has(m.fullId))
   }
 
   if (activeTier1.length === 0) return null
+
+  // 4. 不同提供商模型更换：如果有要排除的提供商（例如因 402/余额不足等原因报错），优先排除它们
+  if (excludedProviderIds && excludedProviderIds.size > 0) {
+    const filtered = activeTier1.filter((m) => !excludedProviderIds.has(m.providerId))
+    if (filtered.length > 0) {
+      activeTier1 = filtered
+    }
+  }
 
   // 1.识别长文本请求：长文本流量只在第一梯队【文本】分类模型中调度，过滤绘图、多模态、向量嵌入类模型。
   let candidates = activeTier1
@@ -723,7 +736,7 @@ export async function recordBusinessLatency(
     // 触发空位海选补位
     storage = await backfillTier1FromTier2(env, storage)
   } else {
-    if (debugMode && storage.tier1.length < TIER_1_MAX_SLOTS) {
+    if (storage.tier1.length < TIER_1_MAX_SLOTS) {
       storage = await backfillTier1FromTier2(env, storage)
     } else {
       await saveTierStorage(env, storage)

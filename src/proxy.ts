@@ -60,18 +60,36 @@ async function recordModelFailure(env: Env, providerId: string, modelId: string,
     await updateProvider(env, providerId, { models: updatedModels })
   }
 
-  // 调试模式下：如果当前模型在第一梯队中且出现异常，实时踢出第一梯队并触发第二梯队自动补位
+  const modelNowConfig = updatedModels.find((m) => m.id === modelId)
+  const isPermDisabled = modelNowConfig?.permanentlyDisabled === true
+  const actualDisabledReason = modelNowConfig?.disabledReason || ''
+
   const debugMode = await getDebugMode(env)
-  if (debugMode) {
-    const fullId = `${providerId}/${modelId}`
-    let storage = await getTierStorage(env)
-    if (storage && storage.tier1.some((m) => m.fullId === fullId)) {
+  const fullId = `${providerId}/${modelId}`
+  let storage = await getTierStorage(env)
+
+  if (storage) {
+    let changed = false
+    const inTier1 = storage.tier1.some((m) => m.fullId === fullId)
+
+    if (isPermDisabled) {
+      // 永久失效 (例如 402/余额不足、连续 3 次失败)：第一时间踢出第一、第二梯队
+      storage.tier1 = storage.tier1.filter((m) => m.fullId !== fullId)
+      storage.tier2 = storage.tier2.filter((m) => m.fullId !== fullId)
+      changed = true
+      console.log(`[proxy] 永久失效模型 ${fullId} 已从第一、第二梯队踢出，原因: ${actualDisabledReason}`)
+    } else if (debugMode && inTier1) {
+      // 调试模式下：如果当前模型在第一梯队中且出现异常，实时踢出第一梯队并触发第二梯队自动补位
       console.log(`[proxy] [调试模式] 第一梯队模型 ${fullId} 调用异常(${status})，立即实时剔除并补充备用模型`)
       storage.tier1 = storage.tier1.filter((m) => m.fullId !== fullId)
       const ref = { providerId, modelId, fullId, addedAt: Date.now() }
       if (!storage.tier2.some((m) => m.fullId === fullId)) {
         storage.tier2.push(ref)
       }
+      changed = true
+    }
+
+    if (changed) {
       storage.probeStats[fullId] = {
         success: false,
         latency: 0,
@@ -268,195 +286,239 @@ export async function handleProxy(c: Context<{ Bindings: Env }>) {
 
     if (model === 'auto' || model === 'auto/auto') {
       isAutoRequest = true
-      const autoRes = await selectAutoModel(c.env, isLongText, sessionId)
-      if (!autoRes) {
-        await recordLog(c.env, startTime, requestedModel, 503, '第一梯队无可用的模型')
-        return c.json({ error: { message: '第一梯队池暂无可用的模型，请先配置模型或进行初始化探测', type: 'service_unavailable' } }, 503)
+    }
+
+    const triedProviders = new Set<string>()
+    let currentModel = model
+    let attempts = 0
+    const maxAttempts = 3
+
+    while (attempts < maxAttempts) {
+      attempts++
+
+      if (isAutoRequest) {
+        const autoRes = await selectAutoModel(c.env, isLongText, sessionId, triedProviders)
+        if (!autoRes) {
+          // 如果尝试了所有提供商，重置重新选，避免死循环
+          const fallbackRes = await selectAutoModel(c.env, isLongText, sessionId, new Set())
+          if (!fallbackRes) {
+            await recordLog(c.env, startTime, requestedModel, 503, '第一梯队无可用的模型')
+            return c.json({ error: { message: '第一梯队池暂无可用的模型，请先配置模型或进行初始化探测', type: 'service_unavailable' } }, 503)
+          }
+          currentModel = fallbackRes.fullId
+        } else {
+          currentModel = autoRes.fullId
+        }
+        requestedModel = `auto (${currentModel})`
       }
-      model = autoRes.fullId
-      requestedModel = `auto (${autoRes.fullId})`
-    }
 
-    const parsed = parseModelId(model)
-    if (!parsed) {
-      await recordLog(c.env, startTime, requestedModel, 400, `模型格式错误 "${model}"`)
-      return c.json({
-        error: {
-          message: `模型格式错误 "${model}"，请使用 提供商ID/模型ID 格式`,
-          type: 'invalid_request_error',
-        },
-      }, 400)
-    }
+      const parsed = parseModelId(currentModel)
+      if (!parsed) {
+        await recordLog(c.env, startTime, requestedModel, 400, `模型格式错误 "${currentModel}"`)
+        return c.json({
+          error: {
+            message: `模型格式错误 "${currentModel}"，请使用 提供商ID/模型ID 格式`,
+            type: 'invalid_request_error',
+          },
+        }, 400)
+      }
 
-    const { providerId, modelId } = parsed
-    const provider = await getProvider(c.env, providerId)
+      const { providerId, modelId } = parsed
+      triedProviders.add(providerId)
 
-    if (!provider) {
-      await recordLog(c.env, startTime, requestedModel, 404, `提供商 "${providerId}" 不存在`)
-      return c.json({
-        error: { message: `提供商 "${providerId}" 不存在`, type: 'invalid_request_error' },
-      }, 404)
-    }
+      const provider = await getProvider(c.env, providerId)
 
-    if (!provider.enabled) {
-      await recordLog(c.env, startTime, requestedModel, 403, `提供商 "${provider.name}" 已禁用`)
-      return c.json({
-        error: { message: `提供商 "${provider.name}" 已禁用`, type: 'provider_disabled' },
-      }, 403)
-    }
+      if (!provider) {
+        if (isAutoRequest && attempts < maxAttempts) {
+          continue
+        }
+        await recordLog(c.env, startTime, requestedModel, 404, `提供商 "${providerId}" 不存在`)
+        return c.json({
+          error: { message: `提供商 "${providerId}" 不存在`, type: 'invalid_request_error' },
+        }, 404)
+      }
 
-    const modelConfig = provider.models.find((m) => m.id === modelId)
-    if (!modelConfig) {
-      await recordLog(c.env, startTime, requestedModel, 404, `模型 "${modelId}" 未配置`)
-      return c.json({
-        error: { message: `模型 "${modelId}" 未在提供商 "${provider.name}" 中配置`, type: 'invalid_request_error' },
-      }, 404)
-    }
-    if (!modelConfig.enabled) {
-      await recordLog(c.env, startTime, requestedModel, 403, `模型 "${modelId}" 已禁用`)
-      return c.json({
-        error: { message: `模型 "${modelId}" 已禁用`, type: 'model_disabled' },
-      }, 403)
-    }
+      if (!provider.enabled) {
+        if (isAutoRequest && attempts < maxAttempts) {
+          continue
+        }
+        await recordLog(c.env, startTime, requestedModel, 403, `提供商 "${provider.name}" 已禁用`)
+        return c.json({
+          error: { message: `提供商 "${provider.name}" 已禁用`, type: 'provider_disabled' },
+        }, 403)
+      }
 
-    if (modelConfig.permanentlyDisabled) {
-      const reason = modelConfig.disabledReason || '受上游故障影响已标记永久失效'
-      await recordLog(c.env, startTime, requestedModel, 403, `模型已标记永久失效 (${reason})`)
-      return c.json({
-        error: { message: `模型 "${modelId}" 已标记永久失效: ${reason}。需管理员手动解封重置。`, type: 'model_permanently_disabled' },
-      }, 403)
-    }
+      const modelConfig = provider.models.find((m) => m.id === modelId)
+      if (!modelConfig) {
+        if (isAutoRequest && attempts < maxAttempts) {
+          continue
+        }
+        await recordLog(c.env, startTime, requestedModel, 404, `模型 "${modelId}" 未配置`)
+        return c.json({
+          error: { message: `模型 "${modelId}" 未在提供商 "${provider.name}" 中配置`, type: 'invalid_request_error' },
+        }, 404)
+      }
+      if (!modelConfig.enabled) {
+        if (isAutoRequest && attempts < maxAttempts) {
+          continue
+        }
+        await recordLog(c.env, startTime, requestedModel, 403, `模型 "${modelId}" 已禁用`)
+        return c.json({
+          error: { message: `模型 "${modelId}" 已禁用`, type: 'model_disabled' },
+        }, 403)
+      }
 
-    if (modelConfig.cooldownUntil && Date.now() < modelConfig.cooldownUntil) {
-      const remainingSec = Math.ceil((modelConfig.cooldownUntil - Date.now()) / 1000)
-      await recordLog(c.env, startTime, requestedModel, 530, `模型处于冷却期 (${remainingSec}s)`)
-      return c.json({
-        error: { message: `模型 "${modelId}" 暂处于冷却期（剩余 ${remainingSec} 秒），已脱离所有梯队`, type: 'model_cooling_down' },
-      }, 530 as any)
-    }
+      if (modelConfig.permanentlyDisabled) {
+        if (isAutoRequest && attempts < maxAttempts) {
+          continue
+        }
+        const reason = modelConfig.disabledReason || '受上游故障影响已标记永久失效'
+        await recordLog(c.env, startTime, requestedModel, 403, `模型已标记永久失效 (${reason})`)
+        return c.json({
+          error: { message: `模型 "${modelId}" 已标记永久失效: ${reason}。需管理员手动解封重置。`, type: 'model_permanently_disabled' },
+        }, 403)
+      }
 
-    const enabledKeys = provider.apiKeys.filter(k => k.enabled)
-    const forwardBody = { ...body, model: modelId }
-    // 自动清洗兼容性参数：剥离听书/客户端自动附带但部分上游模型不支持的 thinking 属性
-    delete (forwardBody as Record<string, unknown>).thinking
-    const url = new URL(c.req.url)
-    const subPath = url.pathname.replace(/^\/v1\//, '') || 'chat/completions'
+      if (modelConfig.cooldownUntil && Date.now() < modelConfig.cooldownUntil) {
+        if (isAutoRequest && attempts < maxAttempts) {
+          continue
+        }
+        const remainingSec = Math.ceil((modelConfig.cooldownUntil - Date.now()) / 1000)
+        await recordLog(c.env, startTime, requestedModel, 530, `模型处于冷却期 (${remainingSec}s)`)
+        return c.json({
+          error: { message: `模型 "${modelId}" 暂处于冷却期（剩余 ${remainingSec} 秒），已脱离所有梯队`, type: 'model_cooling_down' },
+        }, 530 as any)
+      }
 
-    if (isOpenCodeProvider(providerId)) {
-      const response = await proxyOpenCodeRequest({
-        baseUrl: provider.baseUrl,
-        apiKeys: enabledKeys,
-        method: c.req.method,
-        subPath,
-        search: url.search,
-        body: JSON.stringify(forwardBody),
-        mirrorUrls: resolveOpenCodeUrls(c.env),
-      })
+      const enabledKeys = provider.apiKeys.filter(k => k.enabled)
+      const forwardBody = { ...body, model: modelId }
+      // 自动清洗兼容性参数：剥离听书/客户端自动附带但部分上游模型不支持的 thinking 属性
+      delete (forwardBody as Record<string, unknown>).thinking
+      const url = new URL(c.req.url)
+      const subPath = url.pathname.replace(/^\/v1\//, '') || 'chat/completions'
 
-      let resText: string | null = null
-      let isContentEmpty = false
+      if (isOpenCodeProvider(providerId)) {
+        const response = await proxyOpenCodeRequest({
+          baseUrl: provider.baseUrl,
+          apiKeys: enabledKeys,
+          method: c.req.method,
+          subPath,
+          search: url.search,
+          body: JSON.stringify(forwardBody),
+          mirrorUrls: resolveOpenCodeUrls(c.env),
+        })
 
-      if (response.ok && !forwardBody.stream) {
-        try {
-          resText = await response.text()
-          const resJson = JSON.parse(resText)
-          if (resJson && Array.isArray(resJson.choices) && resJson.choices.length > 0) {
-            const choice = resJson.choices[0]
-            const msg = choice?.message
-            const hasToolCalls = (msg?.tool_calls && Array.isArray(msg.tool_calls) && msg.tool_calls.length > 0) || !!msg?.function_call
-            if (!hasToolCalls) {
-              const content = msg?.content
-              if (content === '' || content === null || content === undefined || (typeof content === 'string' && content.trim() === '')) {
-                isContentEmpty = true
+        let resText: string | null = null
+        let isContentEmpty = false
+
+        if (response.ok && !forwardBody.stream) {
+          try {
+            resText = await response.text()
+            const resJson = JSON.parse(resText)
+            if (resJson && Array.isArray(resJson.choices) && resJson.choices.length > 0) {
+              const choice = resJson.choices[0]
+              const msg = choice?.message
+              const hasToolCalls = (msg?.tool_calls && Array.isArray(msg.tool_calls) && msg.tool_calls.length > 0) || !!msg?.function_call
+              if (!hasToolCalls) {
+                const content = msg?.content
+                if (content === '' || content === null || content === undefined || (typeof content === 'string' && content.trim() === '')) {
+                  isContentEmpty = true
+                }
               }
             }
+          } catch {
+            // ignore
           }
-        } catch {
-          // ignore
         }
+
+        if (isContentEmpty || !response.ok) {
+          const errReason = isContentEmpty ? '上游返回空内容 (choices[0].message.content 为空)' : `HTTP ${response.status}: ${response.statusText || '请求失败'}`
+          const errStatus = isContentEmpty ? 502 : response.status
+          await recordModelFailure(c.env, providerId, modelId, errStatus, errReason)
+          await recordLog(c.env, startTime, requestedModel, errStatus, errReason)
+          await recordBusinessLatency(c.env, `${providerId}/${modelId}`, Date.now() - startTime, false, isAutoRequest, sessionId)
+          if (isAutoRequest && attempts < maxAttempts) {
+            continue
+          }
+          return c.json({
+            error: { message: errReason, type: isContentEmpty ? 'empty_response' : 'proxy_error' },
+          }, errStatus as Parameters<typeof c.json>[1])
+        }
+
+        await recordLog(c.env, startTime, requestedModel, response.status, null)
+        await recordBusinessLatency(c.env, `${providerId}/${modelId}`, Date.now() - startTime, true, isAutoRequest, sessionId)
+        return new Response(resText !== null ? resText : response.body, {
+          status: response.status,
+          statusText: response.statusText,
+          headers: response.headers,
+        })
       }
 
-      if (isContentEmpty) {
-        const errReason = '上游返回空内容 (choices[0].message.content 为空)'
-        await recordModelFailure(c.env, providerId, modelId, 502, errReason)
-        await recordLog(c.env, startTime, requestedModel, 502, errReason)
-        await recordBusinessLatency(c.env, `${providerId}/${modelId}`, Date.now() - startTime, false, isAutoRequest, sessionId)
+      if (enabledKeys.length === 0) {
+        if (isAutoRequest && attempts < maxAttempts) {
+          await recordModelFailure(c.env, providerId, modelId, 500, '提供商无可用的 API Key')
+          continue
+        }
+        await recordLog(c.env, startTime, requestedModel, 500, `提供商 "${provider.name}" 未配置可用的 API Key`)
         return c.json({
-          error: { message: errReason, type: 'empty_response' },
-        }, 502)
+          error: { message: `提供商 "${provider.name}" 未配置可用的 API Key`, type: 'configuration_error' },
+        }, 500)
       }
 
-      const errReason = response.ok ? null : `HTTP ${response.status}: ${response.statusText || '请求失败'}`
-      await recordLog(c.env, startTime, requestedModel, response.status, errReason)
-      await recordBusinessLatency(c.env, `${providerId}/${modelId}`, Date.now() - startTime, response.ok, isAutoRequest, sessionId)
-      return new Response(resText !== null ? resText : response.body, {
-        status: response.status,
-        statusText: response.statusText,
-        headers: response.headers,
-      })
-    }
+      const cleanBase = provider.baseUrl.replace(/\/$/, '')
+      const forwardUrl = `${cleanBase}/${subPath}${url.search}`
 
-    if (enabledKeys.length === 0) {
-      await recordLog(c.env, startTime, requestedModel, 500, `提供商 "${provider.name}" 未配置可用的 API Key`)
-      return c.json({
-        error: { message: `提供商 "${provider.name}" 未配置可用的 API Key`, type: 'configuration_error' },
-      }, 500)
-    }
+      // 按健康状态排序 key：健康→洗牌，不健康→末尾，冷却到期→试用，连续失败3次→降权排除
+      const healthData = await readHealth(c.env, providerId)
+      const healthy: number[] = []
+      const unhealthy: number[] = []
+      const probation: number[] = []
+      const demoted: number[] = []
 
-    const cleanBase = provider.baseUrl.replace(/\/$/, '')
-    const forwardUrl = `${cleanBase}/${subPath}${url.search}`
-
-    // 按健康状态排序 key：健康→洗牌，不健康→末尾，冷却到期→试用，连续失败3次→降权排除
-    const healthData = await readHealth(c.env, providerId)
-    const healthy: number[] = []
-    const unhealthy: number[] = []
-    const probation: number[] = []
-    const demoted: number[] = []
-
-    if (enabledKeys.length === 1) {
-      // 只有一个 key，跳过健康检查，直接使用
-      healthy.push(0)
-    } else {
-      for (let i = 0; i < enabledKeys.length; i++) {
-        const h = healthData[enabledKeys[i].key]
-        if (h && h.failures >= KEY_HEALTH_MAX_FAILURES) {
-          // 兼容旧数据：无 demotedAt 视为现在刚降权，统一走冷却逻辑
-          if (!h.demotedAt) {
-            h.demotedAt = Date.now()
-          }
-          if (Date.now() - h.demotedAt >= KEY_HEALTH_COOLDOWN_MS) {
-            probation.push(i)  // 冷却到期，进入试用组
+      if (enabledKeys.length === 1) {
+        // 只有一个 key，跳过健康检查，直接使用
+        healthy.push(0)
+      } else {
+        for (let i = 0; i < enabledKeys.length; i++) {
+          const h = healthData[enabledKeys[i].key]
+          if (h && h.failures >= KEY_HEALTH_MAX_FAILURES) {
+            // 兼容旧数据：无 demotedAt 视为现在刚降权，统一走冷却逻辑
+            if (!h.demotedAt) {
+              h.demotedAt = Date.now()
+            }
+            if (Date.now() - h.demotedAt >= KEY_HEALTH_COOLDOWN_MS) {
+              probation.push(i)  // 冷却到期，进入试用组
+            } else {
+              demoted.push(i)    // 仍在冷却，继续保持降权
+            }
+          } else if (h && h.lastFailed) {
+            unhealthy.push(i)
           } else {
-            demoted.push(i)    // 仍在冷却，继续保持降权
+            healthy.push(i)
           }
-        } else if (h && h.lastFailed) {
-          unhealthy.push(i)
-        } else {
-          healthy.push(i)
         }
       }
-    }
 
-    // Fisher-Yates 洗牌（仅健康 key）
-    for (let i = healthy.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [healthy[i], healthy[j]] = [healthy[j], healthy[i]]
-    }
+      // Fisher-Yates 洗牌（仅健康 key）
+      for (let i = healthy.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [healthy[i], healthy[j]] = [healthy[j], healthy[i]]
+      }
 
-    const keyOrder = [...healthy, ...unhealthy, ...probation]
+      const keyOrder = [...healthy, ...unhealthy, ...probation]
 
-    // 所有 key 都在冷却中时，降级尝试 demoted key（修复旧数据缺失 demotedAt 的死循环）
-    if (keyOrder.length === 0 && demoted.length > 0) {
-      keyOrder.push(...demoted)
-      console.log(`[proxy] ${providerId}: all keys demoted, falling back to ${demoted.length} key(s)`)
-    }
+      // 所有 key 都在冷却中时，降级尝试 demoted key（修复旧数据缺失 demotedAt 的死循环）
+      if (keyOrder.length === 0 && demoted.length > 0) {
+        keyOrder.push(...demoted)
+        console.log(`[proxy] ${providerId}: all keys demoted, falling back to ${demoted.length} key(s)`)
+      }
 
-    if (demoted.length > 0 || probation.length > 0) {
-      console.log(`[proxy] ${providerId}: ${demoted.length} key(s) demoted, ${probation.length} key(s) on probation (cooldown expired)`)
-    }
+      if (demoted.length > 0 || probation.length > 0) {
+        console.log(`[proxy] ${providerId}: ${demoted.length} key(s) demoted, ${probation.length} key(s) on probation (cooldown expired)`)
+      }
 
-    let lastError: Response | null = null
-    let healthUpdated = false
+      let lastError: Response | null = null
+      let healthUpdated = false
 
     for (const keyIndex of keyOrder) {
       const apiKey = enabledKeys[keyIndex].key
@@ -564,6 +626,9 @@ export async function handleProxy(c: Context<{ Bindings: Env }>) {
         await recordModelFailure(c.env, providerId, modelId, response.status, errMsg)
         await recordLog(c.env, startTime, requestedModel, response.status, errMsg)
         await recordBusinessLatency(c.env, `${providerId}/${modelId}`, Date.now() - startTime, false, isAutoRequest, sessionId)
+        if (isAutoRequest && attempts < maxAttempts) {
+          break // break standard key loop to let outer while-loop continue to next provider
+        }
         return c.json(errorData, response.status as Parameters<typeof c.json>[1])
       } catch (err) {
         const error = err as Error
@@ -594,6 +659,9 @@ export async function handleProxy(c: Context<{ Bindings: Env }>) {
       await recordModelFailure(c.env, providerId, modelId, lastError.status || 502, errorBody)
       await recordLog(c.env, startTime, requestedModel, lastError.status || 502, errMsg)
       await recordBusinessLatency(c.env, `${providerId}/${modelId}`, Date.now() - startTime, false, isAutoRequest, sessionId)
+      if (isAutoRequest && attempts < maxAttempts) {
+        continue // outer while-loop continue to next provider
+      }
       return c.json({
         error: {
           message: errMsg,
@@ -603,11 +671,22 @@ export async function handleProxy(c: Context<{ Bindings: Env }>) {
       }, (lastError.status || 502) as Parameters<typeof c.json>[1])
     }
 
+    if (isAutoRequest && attempts < maxAttempts) {
+      await recordModelFailure(c.env, providerId, modelId, 500, '提供商无可用的 API Key')
+      continue // outer while-loop continue to next provider
+    }
+
     await recordLog(c.env, startTime, requestedModel, 500, '没有可用的 API Key')
     return c.json({
       error: { message: '没有可用的 API Key', type: 'configuration_error' },
     }, 500)
-  } catch (err) {
+  }
+
+  await recordLog(c.env, startTime, requestedModel, 500, '所有自动补位与重试模型均已失败')
+  return c.json({
+    error: { message: '所有自动补位与重试模型均已失败', type: 'server_error' },
+  }, 500)
+} catch (err) {
     const error = err as Error
     await recordLog(c.env, startTime, requestedModel, 500, error.message || '代理转发内部错误')
     return c.json({

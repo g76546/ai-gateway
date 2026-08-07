@@ -321,7 +321,6 @@ label, legend { color: var(--color-ink-2); font-size: var(--text-xs); font-weigh
 .gp, .provider-list, .key-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-xs); }
 @media (min-width: 768px) {
   .provider-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-sm); align-items: start; }
-  .provider-list .pi.open { grid-column: 1 / -1; }
 }
 .pi, .ki { min-width: 0; border: .0625rem solid var(--color-rule); border-radius: var(--radius-control); background: var(--color-paper); }
 .ps { min-height: 4.75rem; padding: var(--space-xs); display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); cursor: pointer; }
@@ -374,22 +373,22 @@ label, legend { color: var(--color-ink-2); font-size: var(--text-xs); font-weigh
 /* Model Single Row Container */
 .model-single-row {
   display: flex !important;
-  flex-wrap: wrap !important;
+  flex-wrap: nowrap !important;
   align-items: center !important;
   justify-content: space-between !important;
-  gap: 6px 10px !important;
-  padding: 6px 10px !important;
+  gap: 6px !important;
+  padding: 6px 8px !important;
   border: 1px solid var(--color-rule-2) !important;
   border-radius: var(--radius-control) !important;
   background: var(--color-paper-2) !important;
-  margin-block-end: 8px !important;
+  margin-block-end: 6px !important;
   min-width: 0 !important;
 }
 
 .model-single-row input.model-id-input,
 .field-row input.model-id-input,
 .field-row input.ami {
-  flex: 1 1 14rem !important;
+  flex: 1 1 0% !important;
   min-width: 0 !important;
   width: auto !important;
   height: 2.125rem !important;
@@ -406,10 +405,29 @@ label, legend { color: var(--color-ink-2); font-size: var(--text-xs); font-weigh
 .model-row-meta {
   display: flex !important;
   align-items: center !important;
-  gap: 6px !important;
-  flex-wrap: wrap !important;
+  gap: 4px !important;
+  flex-wrap: nowrap !important;
   flex-shrink: 0 !important;
   margin-inline-start: auto !important;
+}
+
+.model-row-meta .icon-btn {
+  width: 28px !important;
+  height: 28px !important;
+  padding: 0 !important;
+  flex-shrink: 0 !important;
+}
+
+.model-row-meta select {
+  font-size: 0.75rem !important;
+  height: 28px !important;
+  padding-inline: 4px !important;
+}
+
+.model-row-meta .latency-chip {
+  padding: 2px 4px !important;
+  font-size: 0.7rem !important;
+  margin-right: 2px !important;
 }
 .grid-2-gap6 { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-2xs); }
 @keyframes modal-in { from { opacity: 0; transform: translateY(var(--space-xs)); } to { opacity: 1; transform: none; } }
@@ -869,7 +887,7 @@ label, legend { color: var(--color-ink-2); font-size: var(--text-xs); font-weigh
     display: flex !important;
     justify-content: flex-end !important;
     align-items: center !important;
-    gap: 6px !important;
+    gap: 4px !important;
   }
 
   /* Model token cards inside homepage */

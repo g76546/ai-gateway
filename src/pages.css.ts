@@ -740,30 +740,64 @@ label, legend { color: var(--color-ink-2); font-size: var(--text-xs); font-weigh
   .modal { transform: none; }
 }
 
-/* 顶部固定悬浮【统一保存】大按钮栏样式 */
-.save-floating-bar {
-  position: sticky;
-  top: 0;
-  z-index: 1000;
+/* 左侧栏【统一保存】与状态标签样式 */
+.rail-save-box {
+  margin-block-end: var(--space-xs);
+  padding: 0.625rem;
+  background: var(--color-paper-2, #f8fafc);
+  border: 1px solid var(--color-rule-2, #e2e8f0);
+  border-radius: var(--radius-panel, 8px);
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-md);
-  padding: var(--space-xs) var(--space-md);
-  margin-block-bottom: var(--space-md);
-  background: var(--color-paper-a);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--color-rule);
-  border-radius: var(--radius-panel);
-  box-shadow: var(--shadow-float);
+  flex-direction: column;
+  gap: 0.5rem;
 }
-.save-status-group {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-  flex-wrap: wrap;
+.rail-save-box .badge-status {
+  width: 100%;
+  box-sizing: border-box;
+  justify-content: center;
+  text-align: center;
+  font-size: 11px;
+  padding: 0.25rem 0.5rem;
 }
+.rail-save-box .btn-save-all {
+  width: 100%;
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 0.4rem 0.875rem;
+  height: 2.25rem;
+  border-radius: var(--radius-control, 6px);
+  background: var(--color-accent, #2563eb);
+  color: #ffffff;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  transition: all var(--dur-fast) var(--ease-out);
+  box-shadow: var(--shadow-sm);
+  white-space: nowrap;
+}
+.rail-save-box .btn-save-all:hover:not(:disabled) {
+  background: var(--color-accent-hover, #1d4ed8);
+  transform: translateY(-1px);
+}
+
+.btn-save-mobile {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.625rem;
+  height: 1.875rem;
+  border-radius: var(--radius-control, 6px);
+  background: var(--color-accent, #2563eb);
+  color: #ffffff;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
 .badge-status {
   display: inline-flex;
   align-items: center;

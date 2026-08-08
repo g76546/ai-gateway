@@ -610,6 +610,14 @@ ${H('管理')}
       <a class="admin-nav__link" href="#logs"><i class="fas fa-list-alt" aria-hidden="true"></i><span>请求日志</span><b id="logs-count-badge">${logs.length}</b></a>
     </nav>
     <div class="admin-rail__foot">
+      <div class="rail-save-box" id="save-bar">
+        <span id="save-status-badge" class="badge-status badge-synced save-status-badge">
+          <i class="fas fa-check-circle" aria-hidden="true"></i> 配置已同步 KV
+        </span>
+        <button id="btn-save-all" class="btn-save-all" onclick="saveAllConfig()">
+          <i class="fas fa-save" aria-hidden="true"></i> 统一保存
+        </button>
+      </div>
       <a href="/" class="admin-nav__link"><i class="fas fa-arrow-left" aria-hidden="true"></i><span>返回首页</span></a>
       <a href="/admin/logout" class="admin-nav__link" onclick="localStorage.removeItem('admin_token')"><i class="fas fa-sign-out-alt" aria-hidden="true"></i><span>退出登录</span></a>
     </div>
@@ -619,24 +627,12 @@ ${H('管理')}
     <header class="admin-topbar">
       <a class="brand" href="/"><span class="brand__mark" aria-hidden="true"><i class="fas fa-cloud"></i></span><span class="brand__name">${SITE_CONFIG.title}</span></a>
       <nav aria-label="移动端控制台导航"><a href="#overview">概览</a><a href="#providers">提供商</a><a href="#proxy-keys">Key</a><a href="#logs">日志</a></nav>
+      <button class="btn-save-all btn-save-mobile" onclick="saveAllConfig()"><i class="fas fa-save" aria-hidden="true"></i> 保存</button>
       <a class="icon-btn" href="/admin/logout" onclick="localStorage.removeItem('admin_token')" aria-label="退出登录"><i class="fas fa-sign-out-alt" aria-hidden="true"></i></a>
     </header>
 
     <main class="admin-content">
       <div id="toast" class="hd toast" role="status" aria-live="polite"></div>
-
-      <!-- 顶部固定悬浮【统一保存】大按钮栏 -->
-      <div class="save-floating-bar" id="save-bar">
-        <div class="save-status-group">
-          <span id="save-status-badge" class="badge-status badge-synced">
-            <i class="fas fa-check-circle" aria-hidden="true"></i> 配置已同步 KV
-          </span>
-          <span id="save-status-text" style="color: var(--color-muted); font-size: var(--text-xs);">所有改动均在内存暂存，点击右侧【统一保存】批量落盘。</span>
-        </div>
-        <button id="btn-save-all" class="btn-save-all" onclick="saveAllConfig()">
-          <i class="fas fa-save" aria-hidden="true"></i> 统一保存
-        </button>
-      </div>
 
       <section id="overview" class="admin-overview" aria-labelledby="admin-title">
         <div class="admin-heading">
@@ -871,16 +867,16 @@ var isDirty = false;
 
 function markDirty(dirty) {
   isDirty = dirty;
-  var badge = document.getElementById('save-status-badge');
-  if (badge) {
+  var badges = document.querySelectorAll('.save-status-badge, #save-status-badge');
+  badges.forEach(function(badge) {
     if (dirty) {
-      badge.className = 'badge-status badge-unsaved';
+      badge.className = 'badge-status badge-unsaved save-status-badge';
       badge.innerHTML = '<i class="fas fa-exclamation-triangle" aria-hidden="true"></i> 有未保存的改动';
     } else {
-      badge.className = 'badge-status badge-synced';
+      badge.className = 'badge-status badge-synced save-status-badge';
       badge.innerHTML = '<i class="fas fa-check-circle" aria-hidden="true"></i> 配置已同步 KV';
     }
-  }
+  });
 }
 
 // 同步激活的展开表单输入值到内存暂存状态 draftProviders
@@ -908,15 +904,23 @@ function syncActiveFormsToDraft() {
 
 // 统一保存大按钮处理逻辑（含防重复提交与错误弹窗提示）
 async function saveAllConfig() {
-  var btn = document.getElementById('btn-save-all');
-  if (!btn || btn.disabled) return;
+  var btns = document.querySelectorAll('.btn-save-all, #btn-save-all');
+  if (!btns || btns.length === 0) return;
 
-  // 防重复提交：置灰按钮
-  btn.disabled = true;
-  btn.style.opacity = '0.6';
-  btn.style.cursor = 'not-allowed';
-  var origHtml = btn.innerHTML;
-  btn.innerHTML = '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> 正在落盘保存...';
+  var isAnyDisabled = false;
+  btns.forEach(function(b) {
+    if (b.disabled) isAnyDisabled = true;
+  });
+  if (isAnyDisabled) return;
+
+  btns.forEach(function(b) {
+    var btnEl = b;
+    btnEl.disabled = true;
+    btnEl.style.opacity = '0.6';
+    btnEl.style.cursor = 'not-allowed';
+    btnEl.setAttribute('data-orig-html', btnEl.innerHTML);
+    btnEl.innerHTML = '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> 保存中...';
+  });
 
   try {
     syncActiveFormsToDraft();
@@ -943,11 +947,14 @@ async function saveAllConfig() {
     var errText = (err && err.message) ? err.message : String(err);
     aM('保存配置失败（网络或系统异常）：' + errText, 'error');
   } finally {
-    // 请求结束（成功或失败）后解除置灰
-    btn.disabled = false;
-    btn.style.opacity = '1';
-    btn.style.cursor = 'pointer';
-    btn.innerHTML = origHtml;
+    btns.forEach(function(b) {
+      var btnEl = b;
+      btnEl.disabled = false;
+      btnEl.style.opacity = '1';
+      btnEl.style.cursor = 'pointer';
+      var origHtml = btnEl.getAttribute('data-orig-html');
+      if (origHtml) btnEl.innerHTML = origHtml;
+    });
   }
 }
 

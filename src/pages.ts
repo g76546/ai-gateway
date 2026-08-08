@@ -744,6 +744,10 @@ ${H('管理')}
                   ${p.models.some((m) => m.permanentlyDisabled || (m.cooldownUntil && Date.now() < m.cooldownUntil) || (m.failureCount && m.failureCount > 0)) ? `<button class="btn btn-s btn-xs" onclick="resetAllModelsInProviderBtn(this)" data-pid="${escapePageHtml(p.id)}" style="color:#d97706;border-color:#fcd34d;"><i class="fas fa-sync-alt"></i> 一键重置本提供商所有模型异常</button>` : ''}
                   <button class="btn btn-d btn-xs" onclick="clearProviderModelsBtn(this)" data-pid="${escapePageHtml(p.id)}"><i class="fas fa-trash-alt"></i> 一键删除全部本提供商模型</button>
                 </div>
+                <div class="search-field mb-3" style="position:relative;">
+                  <i class="fas fa-search" aria-hidden="true" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--color-muted);font-size:12px;"></i>
+                  <input type="search" id="msearch-${escapePageHtml(p.id)}" data-pid="${escapePageHtml(p.id)}" placeholder="搜索本提供商中的模型 ID 或分类..." oninput="filterAdminModels(this)" autocomplete="off" style="padding-left:30px;font-size:12px;height:32px;width:100%;box-sizing:border-box;border-radius:var(--radius-control);border:1px solid var(--color-rule);background:var(--color-paper);" class="fx1">
+                </div>
                 <div id="ml-${escapePageHtml(p.id)}">
                   ${p.models.map((m,mi)=>{
                     const mId = m.id || '';
@@ -1577,6 +1581,48 @@ function addMdlToEdit(id, mid) {
   addMdl(id)
 }
 
+function filterAdminModels(target) {
+  var pId = typeof target === 'string' ? target : (target ? target.getAttribute('data-pid') : '');
+  if (!pId) return;
+  var input = document.getElementById('msearch-' + pId);
+  var container = document.getElementById('ml-' + pId);
+  if (!input || !container) return;
+  var q = input.value.trim().toLowerCase();
+  var rows = container.querySelectorAll('.model-single-row');
+  var matchCount = 0;
+  rows.forEach(function(row) {
+    var midInput = row.querySelector('.model-id-input');
+    var catSelect = row.querySelector('.select-xs');
+    var textToSearch = '';
+    if (midInput) textToSearch += midInput.value.toLowerCase() + ' ';
+    if (catSelect) textToSearch += catSelect.value.toLowerCase() + ' ';
+    textToSearch += row.textContent.toLowerCase();
+
+    if (!q || textToSearch.includes(q)) {
+      row.style.display = '';
+      matchCount++;
+    } else {
+      row.style.display = 'none';
+    }
+  });
+
+  var countHint = document.getElementById('mcnt-' + pId);
+  if (!countHint) {
+    countHint = document.createElement('div');
+    countHint.id = 'mcnt-' + pId;
+    countHint.style.fontSize = '11px';
+    countHint.style.color = 'var(--color-muted)';
+    countHint.style.margin = '4px 0 8px 0';
+    input.parentNode.insertAdjacentElement('afterend', countHint);
+  }
+  if (q) {
+    countHint.textContent = '已筛选出 ' + matchCount + ' / ' + rows.length + ' 个模型';
+    countHint.style.display = '';
+  } else {
+    countHint.style.display = 'none';
+  }
+}
+
 function getMdl(id) {
   const c = document.getElementById('ml-' + id)
   if (!c) return []
@@ -1650,6 +1696,7 @@ function addMdl(id) {
   document.getElementById('rm-' + id + '-' + cnt).addEventListener('click', function() { rmMdl(id, cnt) })
   inp.value = ''
   markDirty(true)
+  filterAdminModels(id)
 }
 
 function rmMdl(id, idx) {
@@ -1659,6 +1706,7 @@ function rmMdl(id, idx) {
       if (parseInt(item.dataset.idx) === idx) item.remove()
     })
     markDirty(true)
+    filterAdminModels(id)
   }
 }
 
@@ -1866,9 +1914,14 @@ function renderProviderList() {
   if (!container) return;
 
   var openIds = [];
+  var searchQueries = {};
   container.querySelectorAll('.pd.open').forEach(function(el) {
     var id = el.id ? el.id.replace('dt-', '') : null;
-    if (id) openIds.push(id);
+    if (id) {
+      openIds.push(id);
+      var sq = document.getElementById('msearch-' + id);
+      if (sq && sq.value) searchQueries[id] = sq.value;
+    }
   });
 
   if (!draftProviders || draftProviders.length === 0) {
@@ -2021,6 +2074,10 @@ function renderProviderList() {
       '<button class="btn btn-s btn-xs" onclick="showImportModalBtn(this)" data-pid="' + pId + '"><i class="fas fa-file-import"></i> 一键导入</button>' +
       (abnormalCount > 0 ? '<button class="btn btn-s btn-xs" onclick="resetAllModelsInProviderBtn(this)" data-pid="' + pId + '" style="color:#d97706;border-color:#fcd34d;"><i class="fas fa-sync-alt"></i> 一键重置本提供商所有模型异常</button>' : '') +
       '<button class="btn btn-d btn-xs" onclick="clearProviderModelsBtn(this)" data-pid="' + pId + '"><i class="fas fa-trash-alt"></i> 一键删除全部本提供商模型</button>' +
+      '</div>' +
+      '<div class="search-field mb-3" style="position:relative;">' +
+      '<i class="fas fa-search" aria-hidden="true" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--color-muted);font-size:12px;"></i>' +
+      '<input type="search" id="msearch-' + pId + '" data-pid="' + pId + '" placeholder="搜索本提供商中的模型 ID 或分类..." oninput="filterAdminModels(this)" autocomplete="off" style="padding-left:30px;font-size:12px;height:32px;width:100%;box-sizing:border-box;border-radius:var(--radius-control);border:1px solid var(--color-rule);background:var(--color-paper);" class="fx1">' +
       '</div>';
 
     var opencodeBtn = pId === 'opencode'
@@ -2052,6 +2109,14 @@ function renderProviderList() {
       c.style.transform = 'rotate(90deg)';
       var card = d.closest('.pi');
       if (card) card.classList.add('open');
+    }
+  });
+
+  Object.keys(searchQueries).forEach(function(pId) {
+    var sq = document.getElementById('msearch-' + pId);
+    if (sq) {
+      sq.value = searchQueries[pId];
+      filterAdminModels(pId);
     }
   });
 }

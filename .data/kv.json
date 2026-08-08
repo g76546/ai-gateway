@@ -1,0 +1,18 @@
+{
+  "providers": {
+    "value": "[{\"id\":\"opencode\",\"name\":\"OpenCode\",\"baseUrl\":\"https://opencode.ai/zen/v1\",\"apiType\":\"openai\",\"apiKeys\":[],\"models\":[{\"id\":\"deepseek-v4-flash-free\",\"enabled\":true,\"failureCount\":2,\"cooldownUntil\":1786190156223},{\"id\":\"mimo-v2.5-free\",\"enabled\":true,\"failureCount\":2,\"cooldownUntil\":1786190156224},{\"id\":\"nemotron-3-ultra-free\",\"enabled\":true,\"failureCount\":2,\"cooldownUntil\":1786190156225},{\"id\":\"hy3-free\",\"enabled\":true,\"failureCount\":2,\"cooldownUntil\":1786190156225}],\"enabled\":true,\"createdAt\":\"2026-08-08T11:44:08.575Z\",\"updatedAt\":\"2026-08-08T11:50:56.225Z\"}]"
+  },
+  "migration:opencode-default:v1": {
+    "value": "1"
+  },
+  "proxy:keys": {
+    "value": "[{\"id\":\"5dd62a68-3818-4e5f-ab6b-e10d0fa198b0\",\"key\":\"sk_cf_653eaea0d32f45f7\",\"name\":\"测试 Key\",\"enabled\":true,\"createdAt\":\"2026-08-08T11:44:09.043Z\"}]"
+  },
+  "gateway:tier_data": {
+    "value": "{\"tier1\":[],\"tier2\":[],\"probeStats\":{},\"businessStats\":{},\"updatedAt\":\"2026-08-08T11:52:28.777Z\",\"lastProbeDate\":\"2026-08-08\"}"
+  },
+  "admin:session:41e8a88d-f439-4973-b3b1-01be4af4908a": {
+    "value": "{\"username\":\"admin\",\"expiresAt\":1786794525140}",
+    "expiresAt": 1786794525140
+  }
+}

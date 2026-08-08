@@ -1599,9 +1599,11 @@ function filterAdminModels(target) {
     textToSearch += row.textContent.toLowerCase();
 
     if (!q || textToSearch.includes(q)) {
+      row.classList.remove('hd');
       row.style.display = '';
       matchCount++;
     } else {
+      row.classList.add('hd');
       row.style.display = 'none';
     }
   });

@@ -275,8 +275,9 @@ label, legend { color: var(--color-ink-2); font-size: var(--text-xs); font-weigh
 
 /* Collapsed Models Visibility */
 .model-card.is-collapsed { display: none !important; }
-.provider-card.is-expanded .model-card.is-collapsed,
-.provider-card.is-searching .model-card.is-collapsed { display: flex !important; }
+.provider-card.is-expanded .model-card.is-collapsed:not(.hd),
+.provider-card.is-searching .model-card.is-collapsed:not(.hd) { display: flex !important; }
+.provider-card.is-searching .btn-expand-models { display: none !important; }
 
 .provider-card__footer { margin-block-start: 0.875rem; text-align: center; }
 .btn-expand-models { display: inline-flex; align-items: center; gap: 0.375rem; padding: 0.375rem 1rem; font-size: 0.8125rem; font-weight: 600; color: var(--color-focus, #2563eb); background: var(--color-paper-2, #f8fafc); border: .0625rem solid var(--color-rule-2, #e2e8f0); border-radius: 6px; cursor: pointer; transition: all var(--dur-fast) ease; }
@@ -610,8 +611,8 @@ label, legend { color: var(--color-ink-2); font-size: var(--text-xs); font-weigh
 }
 
 /* 2-line clean layout for provider model list items */
-.provider-list .model-single-row,
-.model-single-row {
+.provider-list .model-single-row:not(.hd),
+.model-single-row:not(.hd) {
   display: flex !important;
   flex-direction: column !important;
   align-items: stretch !important;
@@ -624,6 +625,10 @@ label, legend { color: var(--color-ink-2); font-size: var(--text-xs); font-weigh
   min-width: 0 !important;
   width: 100% !important;
   box-shadow: 0 1px 2px rgba(0,0,0,0.02) !important;
+}
+
+.model-single-row.hd {
+  display: none !important;
 }
 
 .model-row-line-1 {

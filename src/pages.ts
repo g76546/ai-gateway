@@ -926,10 +926,17 @@ function rmKeyBtn(btn) {
 function showM(h) { document.getElementById('mc').innerHTML = h; document.getElementById('modal').classList.remove('hd') }
 function closeM() { document.getElementById('modal').classList.add('hd') }
 function cM(msg) {
-  return new Promise(r => {
-    showM('<h3><i class="fas fa-question-circle c-p"></i> 确认</h3><p>' + msg + '</p><div class="fa"><button class="btn btn-s" onclick="closeM();r(false)">取消</button><button class="btn btn-p" onclick="closeM();r(true)">确定</button></div>')
-    window.r = r
-  })
+  return new Promise(function(r) {
+    showM('<h3><i class="fas fa-question-circle c-p"></i> 确认</h3><p>' + escapeHtml(msg) + '</p><div class="fa"><button class="btn btn-s" id="cMc">取消</button><button class="btn btn-p" id="cMo">确定</button></div>');
+    var cancelBtn = document.getElementById('cMc');
+    var okBtn = document.getElementById('cMo');
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', function() { closeM(); r(false); });
+    }
+    if (okBtn) {
+      okBtn.addEventListener('click', function() { closeM(); r(true); });
+    }
+  });
 }
 function pM(msg, def) {
   return new Promise(r => {
@@ -1672,6 +1679,12 @@ function renderProviderList() {
   const container = document.getElementById('plist');
   if (!container) return;
 
+  var openIds = [];
+  container.querySelectorAll('.pd.open').forEach(function(el) {
+    var id = el.id ? el.id.replace('dt-', '') : null;
+    if (id) openIds.push(id);
+  });
+
   if (!draftProviders || draftProviders.length === 0) {
     container.innerHTML = '<div class="empty-state"><i class="fas fa-server" aria-hidden="true"></i><h3>还没有提供商</h3><p>添加第一个上游提供商，配置 API 地址、Key 和模型。</p><button class="btn btn-p" onclick="showAdd()">添加提供商</button></div>';
     return;
@@ -1828,6 +1841,17 @@ function renderProviderList() {
       '</div>' +
     '</article>';
   }).join('');
+
+  openIds.forEach(function(pId) {
+    var d = document.getElementById('dt-' + pId);
+    var c = document.getElementById('ch-' + pId);
+    if (d && c) {
+      d.classList.add('open');
+      c.style.transform = 'rotate(90deg)';
+      var card = d.closest('.pi');
+      if (card) card.classList.add('open');
+    }
+  });
 }
 
 function renderProxyKeyList() {
@@ -2020,12 +2044,23 @@ async function resetCooldowns() {
     var data = await res.json();
     if (data.success) {
       toast(data.message || '已成功重置冷却模型', 'success');
+      if (Array.isArray(draftProviders)) {
+        draftProviders.forEach(function(p) {
+          if (Array.isArray(p.models)) {
+            p.models.forEach(function(m) {
+              if (m.cooldownUntil) {
+                m.cooldownUntil = null;
+              }
+            });
+          }
+        });
+      }
       var pRes = await fetch('/admin/api/providers');
       var pData = await pRes.json();
       if (pData.success && pData.data) {
         draftProviders = pData.data;
-        renderProviderList();
       }
+      renderProviderList();
     } else {
       aM('重置冷却失败：' + (data.message || '未知错误'), 'error');
     }

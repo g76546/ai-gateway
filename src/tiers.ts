@@ -819,45 +819,13 @@ export async function recordBusinessLatency(
     return
   }
 
-  // 获取当前所有提供商及模型最新可用状态，用于判断梯队内有效模型数量
-  const allModels = await getAllAvailableModels(env)
-  const activeModelMap = new Map(allModels.map((item) => [item.fullId, item]))
-
-  // 梯队内有效模型列表（在 Tier 1 中且未在冷却中、未标记永久失效）
-  const activeTier1List = storage.tier1.filter((m) => activeModelMap.has(m.fullId))
-  const activeCount = activeTier1List.length
-
   let shouldEliminate = false
   let eliminationReason = ''
 
   if (!success) {
-    // 规则 ③：业务请求失败 1 次：模型标黄，移出第一梯队，冷却 10 分钟
+    // 业务请求失败 1 次：模型标黄，移出第一梯队，冷却 10 分钟
     shouldEliminate = true
     eliminationReason = `业务请求失败 1 次`
-  } else if (activeCount >= 2) {
-    // 规则 ①：梯队内有效模型数量 ≥ 2 才开启延迟淘汰
-    // 计算梯队内所有有效模型的真实业务延迟平均值
-    let sumLatency = 0
-    let countWithStats = 0
-
-    for (const m of activeTier1List) {
-      const stat = storage.businessStats[m.fullId]
-      if (stat && stat.avgLatency > 0) {
-        sumLatency += stat.avgLatency
-        countWithStats++
-      }
-    }
-
-    if (countWithStats > 0) {
-      const avgTier1BusinessLatency = sumLatency / countWithStats
-      // 单次用户业务延迟 > 梯队内真实业务延迟平均值 × 5
-      if (latency > avgTier1BusinessLatency * 5) {
-        shouldEliminate = true
-        eliminationReason = `单次用户业务延迟 (${latency}ms) 超过梯队内真实业务延迟平均值 (${Math.round(avgTier1BusinessLatency)}ms) 的 5 倍`
-      }
-    }
-  } else {
-    // 规则 ②：梯队仅剩下 1 个有效模型：关闭延迟淘汰逻辑，只执行失败相关规则。
   }
 
   if (shouldEliminate) {

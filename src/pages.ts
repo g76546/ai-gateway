@@ -520,6 +520,24 @@ ${H('管理')}
                 }
               }
             }
+            let statusChipsHtml = '';
+            (p.models || []).forEach((m) => {
+              const mId = m.id || '';
+              const isPermDisabled = !!m.permanentlyDisabled;
+              const isCooldown = typeof m.cooldownUntil === 'number' && Date.now() < m.cooldownUntil;
+              const failCount = m.failureCount || 0;
+
+              if (isPermDisabled) {
+                statusChipsHtml += `<span class="abnormal-model-chip" style="background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;padding:1px 5px;font-size:10px;border-radius:4px;margin-left:4px;font-weight:600;display:inline-flex;align-items:center;gap:2px;" title="永久失效: ${escapePageHtml(m.disabledReason || '受上游故障影响永久失效')}"><i class="fas fa-ban" style="font-size:9px;"></i>${escapePageHtml(mId)} (永久失效)</span>`;
+              } else if (isCooldown) {
+                statusChipsHtml += `<span class="abnormal-model-chip" style="background:#fef9c3;color:#854d0e;border:1px solid #fef08a;padding:1px 5px;font-size:10px;border-radius:4px;margin-left:4px;font-weight:600;display:inline-flex;align-items:center;gap:2px;" title="冷却中"><i class="fas fa-hourglass-half" style="font-size:9px;"></i>${escapePageHtml(mId)} (冷却中)</span>`;
+              } else if (failCount > 0) {
+                statusChipsHtml += `<span class="abnormal-model-chip" style="background:#ffedd5;color:#c2410c;border:1px solid #fed7aa;padding:1px 5px;font-size:10px;border-radius:4px;margin-left:4px;font-weight:600;display:inline-flex;align-items:center;gap:2px;" title="警告: 累计失败 ${failCount}/3"><i class="fas fa-exclamation-triangle" style="font-size:9px;"></i>${escapePageHtml(mId)} (警告)</span>`;
+              } else if (m.enabled === false) {
+                statusChipsHtml += `<span class="abnormal-model-chip" style="background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;padding:1px 5px;font-size:10px;border-radius:4px;margin-left:4px;font-weight:600;display:inline-flex;align-items:center;gap:2px;text-decoration:line-through;" title="已手动禁用"><i class="fas fa-minus-circle" style="font-size:9px;"></i>${escapePageHtml(mId)} (手动禁用)</span>`;
+              }
+            });
+
             return `
           <article class="pi ${pStatusClass}" data-id="${escapePageHtml(p.id)}">
             <div class="ps" onclick="tog('${p.id}')" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();tog('${p.id}')}" aria-controls="dt-${escapePageHtml(p.id)}">
@@ -527,20 +545,92 @@ ${H('管理')}
               <div class="fc fx-s0" onclick="event.stopPropagation()"><label class="tg"><input type="checkbox" ${p.enabled?'checked':''} id="en-${escapePageHtml(p.id)}" onchange="togglePb('${p.id}',this.checked)" aria-label="启用 ${escapePageHtml(p.name)}"><span class="sl"></span></label><span class="bd ${p.enabled?'bd-on':'bd-off'}">${p.enabled?'已启用':'未启用'}</span></div>
             </div>
             <div class="pd" id="dt-${escapePageHtml(p.id)}">
-              <div class="detail-heading"><div><h3>编辑 ${escapePageHtml(p.name)}</h3><p>修改暂存在内存中，点击顶部【统一保存】落盘写入 KV。</p></div><span class="protocol-chip">${(p.apiType||'openai')==='anthropic'?'ANTHROPIC':'OPENAI'}</span></div>
+              <div class="detail-heading"><div><h3>编辑 ${escapePageHtml(p.name)}</h3><p>修改暂存在内存中，点击顶部【统一保存】或下方【暂存更改】后生效。</p></div><span class="protocol-chip">${(p.apiType||'openai')==='anthropic'?'ANTHROPIC':'OPENAI'}</span></div>
               <div class="fr"><div class="fg"><label>名称</label><input type="text" id="nm-${escapePageHtml(p.id)}" value="${escapePageHtml(p.name)}"></div><div class="fg"><label>ID</label><input type="text" value="${escapePageHtml(p.id)}" disabled></div></div>
               <div class="fg"><label>API 地址</label><input type="url" id="url-${escapePageHtml(p.id)}" value="${escapePageHtml(p.baseUrl)}"></div>
-              <div class="fg"><label>API 格式</label><select id="at-${escapePageHtml(p.id)}" class="select-sm"><option value="openai" ${(p.apiType||'openai')==='openai'?'selected':''}>OpenAI 兼容</option><option value="anthropic" ${p.apiType==='anthropic'?'selected':''}>Anthropic 兼容</option></select></div>
-              <fieldset class="form-group"><legend>上游 API Keys</legend><div id="keys-${escapePageHtml(p.id)}">${p.apiKeys.map((k, ki)=>`<div class="fc mb-3 field-row" data-kidx="${ki}"><input type="text" value="${escapePageHtml(k.key)}" class="fx1" id="k-${escapePageHtml(p.id)}-${ki}" placeholder="API Key" aria-label="API Key"><label class="tg"><input type="checkbox" ${k.enabled?'checked':''} id="ken-${escapePageHtml(p.id)}-${ki}" aria-label="启用 Key"><span class="sl"></span></label><button class="icon-btn" onclick="copyRowVal(this)" title="复制 Key" aria-label="复制 Key"><i class="far fa-copy" aria-hidden="true"></i></button><button class="icon-btn" onclick="testKeyRow('${p.id}',${ki})" title="测试 Key" aria-label="测试 Key"><i class="fas fa-plug" aria-hidden="true"></i></button><button class="icon-btn" onclick="rmKeyRow('${p.id}',${ki})" title="移除 Key" aria-label="移除 Key"><i class="fas fa-times" aria-hidden="true"></i></button></div>`).join('')}</div><div class="fc mt-1 field-row"><input type="text" id="nk-${escapePageHtml(p.id)}" placeholder="新的 API Key" class="fx1"><button class="btn btn-s btn-xs" onclick="addKeyRow('${p.id}')"><i class="fas fa-plus" aria-hidden="true"></i>添加</button></div></fieldset>
-              <fieldset class="form-group"><legend>模型</legend><div id="ml-${escapePageHtml(p.id)}">${p.models.map((m,mi)=>{
-                const isFailed = !!m.permanentlyDisabled;
-                const styleAttr = isFailed ? 'style="color: #ef4444; border-color: #fca5a5; font-weight: 600; background-color: #fef2f2;"' : '';
-                const titleText = isFailed ? `永久失效: ${escapePageHtml(m.disabledReason || '余额不足，等待管理员处理')}` : '模型 ID';
-                const badgeHtml = isFailed ? `<span style="background-color: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 4px; font-weight: 600; margin-right: 8px; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;" title="${titleText}"><i class="fas fa-exclamation-triangle"></i>永久失效</span>` : '';
-                const unblockBtn = isFailed ? `<button class="icon-btn" onclick="unblockModel('${escapePageHtml(p.id)}','${escapePageHtml(m.id)}')" title="点击解封并恢复此模型" style="color: #ef4444; background: #fee2e2; border: 1px solid #fca5a5; border-radius: 4px; padding: 4px 8px; font-size: 0.75rem; display: inline-flex; align-items: center; gap: 4px; margin-right: 4px;"><i class="fas fa-unlock"></i>解封</button>` : '';
-                return `<div class="fc mb-3 field-row" data-idx="${mi}">${badgeHtml}<input type="text" value="${escapePageHtml(m.id)}" class="fx1" id="mid-${escapePageHtml(p.id)}-${mi}" placeholder="模型 ID" ${styleAttr} title="${titleText}"><label class="tg"><input type="checkbox" ${m.enabled?'checked':''} id="men-${escapePageHtml(p.id)}-${mi}" aria-label="启用模型"><span class="sl"></span></label>${unblockBtn}<button class="icon-btn" onclick="testMdlBtn(this)" data-pid="${escapePageHtml(p.id)}" data-mid="${escapePageHtml(m.id)}" data-idx="${mi}" title="测试模型" aria-label="测试模型"><i class="fas fa-plug" aria-hidden="true"></i></button><button class="icon-btn" onclick="rmMdl('${p.id}',${mi})" title="移除模型" aria-label="移除模型"><i class="fas fa-times" aria-hidden="true"></i></button></div>`;
-              }).join('')}</div><div class="fc mt-1 field-row"><input type="text" id="nmid-${escapePageHtml(p.id)}" placeholder="新的模型 ID" class="fx1"><button class="btn btn-s btn-xs" onclick="addMdl('${p.id}')"><i class="fas fa-plus" aria-hidden="true"></i>添加</button><button class="btn btn-s btn-xs btn-d" onclick="clearAllEditModels('${p.id}')" style="margin-left:8px;"><i class="fas fa-trash" aria-hidden="true"></i>一键删除模型</button></div></fieldset>
-              <div class="detail-actions"><div id="tr-${escapePageHtml(p.id)}" aria-live="polite"></div><div>${p.models.some(m => m.permanentlyDisabled || (m.cooldownUntil && Date.now() < m.cooldownUntil)) ? `<button class="btn btn-s" onclick="resetAllModelsInProvider('${escapePageHtml(p.id)}')" style="margin-right:8px;"><i class="fas fa-undo-alt" aria-hidden="true"></i>重置异常模型</button>` : ''}${p.id === 'opencode' ? `<button class="btn btn-s" onclick="fetchEditModels('${escapePageHtml(p.id)}',this)"><i class="fas fa-download" aria-hidden="true"></i>获取模型</button>` : ''}<button class="btn btn-d" onclick="del('${p.id}')"><i class="fas fa-trash" aria-hidden="true"></i>删除</button><button class="btn btn-p" onclick="save('${p.id}')"><i class="fas fa-save" aria-hidden="true"></i>暂存更改</button></div></div>
+              <div class="fg"><label>API 格式</label><select id="at-${escapePageHtml(p.id)}" class="select-sm"><option value="openai" ${(p.apiType||'openai')!=='anthropic'?'selected':''}>OpenAI 兼容</option><option value="anthropic" ${(p.apiType||'openai')==='anthropic'?'selected':''}>Anthropic 兼容</option></select></div>
+              <fieldset class="form-group"><legend>上游 API Keys</legend><div id="keys-${escapePageHtml(p.id)}">${p.apiKeys.map((k,ki)=>`<div class="fc mb-3 field-row" data-kidx="${ki}"><input type="text" value="${escapePageHtml(k.key)}" class="fx1" id="k-${escapePageHtml(p.id)}-${ki}" placeholder="API Key" aria-label="API Key"><label class="tg"><input type="checkbox" ${k.enabled?'checked':''} id="ken-${escapePageHtml(p.id)}-${ki}" aria-label="启用 Key"><span class="sl"></span></label><button class="icon-btn" onclick="copyRowVal(this)" title="复制 Key" aria-label="复制 Key"><i class="far fa-copy" aria-hidden="true"></i></button><button class="icon-btn" onclick="testKeyRowBtn(this)" data-pid="${escapePageHtml(p.id)}" data-kidx="${ki}" title="测试 Key" aria-label="测试 Key"><i class="fas fa-plug" aria-hidden="true"></i></button><button class="icon-btn" onclick="rmKeyRowBtn(this)" data-pid="${escapePageHtml(p.id)}" data-kidx="${ki}" title="移除 Key" aria-label="移除 Key"><i class="fas fa-times" aria-hidden="true"></i></button></div>`).join('')}</div><div class="fc mt-1 field-row"><input type="text" id="nk-${escapePageHtml(p.id)}" placeholder="新的 API Key" class="fx1"><button class="btn btn-s btn-xs" onclick="addKeyRowBtn(this)" data-pid="${escapePageHtml(p.id)}"><i class="fas fa-plus" aria-hidden="true"></i>添加</button></div></fieldset>
+              <fieldset class="form-group"><legend>模型</legend>
+                <div class="fc mb-3" style="gap:8px;flex-wrap:wrap;background:var(--color-paper);padding:8px 12px;border-radius:var(--radius-control);border:1px solid var(--color-rule);">
+                  <button class="btn btn-s btn-xs" onclick="testAllModelsInProviderBtn(this)" data-pid="${escapePageHtml(p.id)}"><i class="fas fa-gauge-high"></i> 批量测模型延迟</button>
+                  <button class="btn btn-s btn-xs" onclick="fetchUpstreamModelsBtn(this)" data-pid="${escapePageHtml(p.id)}"><i class="fas fa-cloud-download-alt"></i> 一键拉取上游模型</button>
+                  <button class="btn btn-s btn-xs" onclick="showImportModalBtn(this)" data-pid="${escapePageHtml(p.id)}"><i class="fas fa-file-import"></i> 一键导入</button>
+                  ${p.models.some((m) => m.permanentlyDisabled || (m.cooldownUntil && Date.now() < m.cooldownUntil) || (m.failureCount && m.failureCount > 0)) ? `<button class="btn btn-s btn-xs" onclick="resetAllModelsInProviderBtn(this)" data-pid="${escapePageHtml(p.id)}" style="color:#d97706;border-color:#fcd34d;"><i class="fas fa-sync-alt"></i> 一键重置本提供商所有模型异常</button>` : ''}
+                  <button class="btn btn-d btn-xs" onclick="clearProviderModelsBtn(this)" data-pid="${escapePageHtml(p.id)}"><i class="fas fa-trash-alt"></i> 一键删除全部本提供商模型</button>
+                </div>
+                <div id="ml-${escapePageHtml(p.id)}">
+                  ${p.models.map((m,mi)=>{
+                    const mId = m.id || '';
+                    const mCat = m.category || '文本';
+                    const isPermDisabled = !!m.permanentlyDisabled;
+                    const permReason = m.disabledReason || '受上游故障影响永久失效';
+                    const isCooldown = typeof m.cooldownUntil === 'number' && Date.now() < m.cooldownUntil;
+                    const cooldownSec = isCooldown && typeof m.cooldownUntil === 'number' ? Math.ceil((m.cooldownUntil - Date.now()) / 1000) : 0;
+                    const failCount = m.failureCount || 0;
+
+                    let styleAttr = '';
+                    let titleText = '模型 ID';
+                    let statusBadge = '';
+                    let unblockBtn = '';
+
+                    if (isPermDisabled) {
+                      styleAttr = 'style="color: #ef4444; border-color: #fca5a5; font-weight: 600; background-color: #fef2f2;"';
+                      titleText = `永久失效: ${escapePageHtml(permReason)}`;
+                      statusBadge = `<span class="bd" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;padding:2px 6px;font-size:11px;border-radius:4px;font-weight:600;" title="${titleText}"><i class="fas fa-ban"></i> 永久失效 (${failCount}/3)</span>`;
+                      unblockBtn = `<button class="btn btn-s btn-xs" style="padding:2px 6px;font-size:11px;" onclick="unblockModelBtn(this)" data-pid="${escapePageHtml(p.id)}" data-mid="${escapePageHtml(m.id)}" title="一键解封并恢复状态"><i class="fas fa-unlock"></i> 解封恢复</button>`;
+                    } else if (isCooldown) {
+                      styleAttr = 'style="border-color: #fcd34d; background-color: #fffbeb;"';
+                      titleText = '因异常进入冷却状态';
+                      statusBadge = `<span class="bd" style="background:#fefce8;color:#ca8a04;border:1px solid #fef08a;padding:2px 6px;font-size:11px;border-radius:4px;font-weight:600;" title="${titleText}"><i class="fas fa-hourglass-half"></i> 冷却中 (${cooldownSec}s)</span>`;
+                      unblockBtn = `<button class="btn btn-s btn-xs" style="padding:2px 6px;font-size:11px;" onclick="unblockModelBtn(this)" data-pid="${escapePageHtml(p.id)}" data-mid="${escapePageHtml(m.id)}" title="重置冷却状态"><i class="fas fa-redo"></i> 重置冷却</button>`;
+                    } else if (failCount > 0) {
+                      styleAttr = 'style="border-color: #ffedd5; background-color: #fffaf0;"';
+                      titleText = '曾出现探测或业务异常';
+                      statusBadge = `<span class="bd" style="background:#fff7ed;color:#ea580c;border:1px solid #ffedd5;padding:2px 6px;font-size:11px;border-radius:4px;font-weight:600;" title="${titleText}"><i class="fas fa-exclamation-triangle"></i> 警告 (失败 ${failCount}/3)</span>`;
+                      unblockBtn = `<button class="btn btn-s btn-xs" style="padding:2px 6px;font-size:11px;" onclick="unblockModelBtn(this)" data-pid="${escapePageHtml(p.id)}" data-mid="${escapePageHtml(m.id)}" title="清零失败计数"><i class="fas fa-check"></i> 清零恢复</button>`;
+                    } else if (m.enabled !== false) {
+                      statusBadge = '<span class="bd bd-on" style="padding:2px 6px;font-size:11px;border-radius:4px;"><i class="fas fa-check-circle"></i> 正常</span>';
+                    } else {
+                      styleAttr = 'style="color: #64748b; border-color: #cbd5e1; background-color: #f1f5f9; text-decoration: line-through;"';
+                      titleText = '模型已手动禁用';
+                      statusBadge = '<span class="bd bd-off" style="padding:2px 6px;font-size:11px;border-radius:4px;"><i class="fas fa-minus-circle"></i> 已禁用</span>';
+                    }
+
+                    const catSelect = `<select class="select-xs" style="padding:2px 6px;font-size:11px;border-radius:4px;" onchange="updateModelCatBtn(this)" data-pid="${escapePageHtml(p.id)}" data-mid="${escapePageHtml(m.id)}" title="修改智能分类">` +
+                      `<option value="文本" ${mCat === '文本' ? 'selected' : ''}>文本</option>` +
+                      `<option value="绘图" ${mCat === '绘图' ? 'selected' : ''}>绘图</option>` +
+                      `<option value="多模态" ${mCat === '多模态' ? 'selected' : ''}>多模态</option>` +
+                      `<option value="其他" ${mCat === '其他' ? 'selected' : ''}>其他</option>` +
+                      `</select>`;
+
+                    return `<div class="model-single-row" data-idx="${mi}">` +
+                      `<div class="model-row-line-1">` +
+                        `<input type="text" value="${escapePageHtml(m.id)}" class="model-id-input" id="mid-${escapePageHtml(p.id)}-${mi}" placeholder="模型 ID" ${styleAttr} title="${titleText}">` +
+                        `<div class="model-row-actions-1">` +
+                          `<label class="tg" title="启用模型"><input type="checkbox" ${m.enabled !== false ? 'checked' : ''} id="men-${escapePageHtml(p.id)}-${mi}" aria-label="启用模型"><span class="sl"></span></label>` +
+                          `<button class="icon-btn" onclick="rmMdlBtn(this)" data-pid="${escapePageHtml(p.id)}" data-idx="${mi}" title="移除模型" aria-label="移除模型"><i class="fas fa-times" aria-hidden="true"></i></button>` +
+                        `</div>` +
+                      `</div>` +
+                      `<div class="model-row-line-2">` +
+                        catSelect +
+                        statusBadge +
+                        `<span id="lat-${escapePageHtml(p.id)}-${mi}" class="latency-chip" title="模型通信延迟"><i class="fas fa-gauge-high"></i> <span class="lat-val">-- ms</span></span>` +
+                        unblockBtn +
+                        `<button class="icon-btn test-mdl-btn" onclick="testMdlBtn(this)" data-pid="${escapePageHtml(p.id)}" data-mid="${escapePageHtml(m.id)}" data-idx="${mi}" title="单独测试模型延迟" aria-label="测试模型延迟"><i class="fas fa-gauge-high" aria-hidden="true"></i></button>` +
+                      `</div>` +
+                    `</div>`;
+                  }).join('')}
+                </div>
+                <div class="fc mt-1 field-row"><input type="text" id="nmid-${escapePageHtml(p.id)}" placeholder="新的模型 ID" class="fx1"><button class="btn btn-s btn-xs" onclick="addMdlBtn(this)" data-pid="${escapePageHtml(p.id)}"><i class="fas fa-plus" aria-hidden="true"></i>添加</button></div>
+              </fieldset>
+              <div class="detail-actions">
+                <div id="tr-${escapePageHtml(p.id)}" aria-live="polite"></div>
+                <div>
+                  ${p.id === 'opencode' ? `<button class="btn btn-s" onclick="fetchEditModelsBtn(this)" data-pid="${escapePageHtml(p.id)}"><i class="fas fa-download" aria-hidden="true"></i>获取模型</button>` : ''}
+                  <button class="btn btn-d" onclick="delBtn(this)" data-pid="${escapePageHtml(p.id)}"><i class="fas fa-trash" aria-hidden="true"></i>删除</button>
+                  <button class="btn btn-p" onclick="saveBtn(this)" data-pid="${escapePageHtml(p.id)}"><i class="fas fa-save" aria-hidden="true"></i>暂存更改</button>
+                </div>
+              </div>
             </div>
           </article>`
           }).join('') : `<div class="empty-state"><i class="fas fa-server" aria-hidden="true"></i><h3>还没有提供商</h3><p>添加第一个上游提供商，配置 API 地址、Key 和模型。</p><button class="btn btn-p" onclick="showAdd()">添加提供商</button></div>`}
@@ -1336,10 +1426,32 @@ function addMdl(id) {
     if (idx > maxIdx) maxIdx = idx
   })
   const cnt = maxIdx + 1
+
+  const catSelect = '<select class="select-xs" style="padding:2px 6px;font-size:11px;border-radius:4px;" onchange="updateModelCatBtn(this)" data-pid="' + escapeHtml(id) + '" data-mid="' + escapeHtml(mid) + '" title="修改智能分类">' +
+    '<option value="文本" selected>文本</option>' +
+    '<option value="绘图">绘图</option>' +
+    '<option value="多模态">多模态</option>' +
+    '<option value="其他">其他</option>' +
+    '</select>';
+
+  const statusBadge = '<span class="bd bd-on" style="padding:2px 6px;font-size:11px;border-radius:4px;"><i class="fas fa-check-circle"></i> 正常</span>';
+
   const d = document.createElement('div')
-  d.className = 'fc mb-3 field-row model-single-row'
+  d.className = 'model-single-row'
   d.dataset.idx = cnt
-  d.innerHTML = '<input type="text" value="' + escapeHtml(mid) + '" class="fx1 model-id-input" id="mid-' + escapeHtml(id) + '-' + cnt + '" placeholder="模型 ID"><span id="lat-' + escapeHtml(id) + '-' + cnt + '" class="latency-chip" title="点击图标测试延迟"><i class="fas fa-gauge-high"></i> <span class="lat-val">-- ms</span></span><label class="tg" title="启用模型"><input type="checkbox" checked id="men-' + escapeHtml(id) + '-' + cnt + '" onchange="markDirty(true)"><span class="sl"></span></label><button class="icon-btn test-mdl-btn" id="tm-' + escapeHtml(id) + '-' + cnt + '" title="单独测试模型延迟" aria-label="测试模型延迟"><i class="fas fa-gauge-high"></i></button><button class="icon-btn" id="rm-' + escapeHtml(id) + '-' + cnt + '" title="移除模型" aria-label="移除模型"><i class="fas fa-times"></i></button>'
+  d.innerHTML = '<div class="model-row-line-1">' +
+    '<input type="text" value="' + escapeHtml(mid) + '" class="model-id-input" id="mid-' + escapeHtml(id) + '-' + cnt + '" placeholder="模型 ID">' +
+    '<div class="model-row-actions-1">' +
+      '<label class="tg" title="启用模型"><input type="checkbox" checked id="men-' + escapeHtml(id) + '-' + cnt + '" onchange="markDirty(true)"><span class="sl"></span></label>' +
+      '<button class="icon-btn" id="rm-' + escapeHtml(id) + '-' + cnt + '" title="移除模型" aria-label="移除模型"><i class="fas fa-times"></i></button>' +
+    '</div>' +
+  '</div>' +
+  '<div class="model-row-line-2">' +
+    catSelect +
+    statusBadge +
+    '<span id="lat-' + escapeHtml(id) + '-' + cnt + '" class="latency-chip" title="点击图标测试延迟"><i class="fas fa-gauge-high"></i> <span class="lat-val">-- ms</span></span>' +
+    '<button class="icon-btn test-mdl-btn" id="tm-' + escapeHtml(id) + '-' + cnt + '" title="单独测试模型延迟" aria-label="测试模型延迟"><i class="fas fa-gauge-high"></i></button>' +
+  '</div>';
   c.appendChild(d)
   document.getElementById('tm-' + id + '-' + cnt).addEventListener('click', function() { testMdl(id, mid, cnt, this) })
   document.getElementById('rm-' + id + '-' + cnt).addEventListener('click', function() { rmMdl(id, cnt) })
@@ -1575,16 +1687,28 @@ function renderProviderList() {
     var keysArr = p.apiKeys || [];
     var modelsArr = p.models || [];
 
+    var statusChipsHtml = '';
     var abnormalCount = 0;
     modelsArr.forEach(function(m) {
-      if (m.permanentlyDisabled || (m.cooldownUntil && Date.now() < m.cooldownUntil) || (m.failureCount && m.failureCount > 0)) {
+      var mId = escapeHtml(m.id || '');
+      var isPermDisabled = !!m.permanentlyDisabled;
+      var isCooldown = m.cooldownUntil && Date.now() < m.cooldownUntil;
+      var failCount = m.failureCount || 0;
+
+      if (isPermDisabled || isCooldown || failCount > 0) {
         abnormalCount++;
       }
-    });
 
-    var abnormalBadge = abnormalCount > 0
-      ? '<span style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;padding:2px 8px;font-size:11px;border-radius:10px;font-weight:600;display:inline-flex;align-items:center;gap:4px;"><i class="fas fa-exclamation-triangle"></i> ' + abnormalCount + '个模型存在异常</span>'
-      : '';
+      if (isPermDisabled) {
+        statusChipsHtml += '<span class="abnormal-model-chip" style="background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;padding:1px 5px;font-size:10px;border-radius:4px;margin-left:4px;font-weight:600;display:inline-flex;align-items:center;gap:2px;" title="永久失效: ' + escapeHtml(m.disabledReason || '受上游故障影响永久失效') + '"><i class="fas fa-ban" style="font-size:9px;"></i>' + mId + ' (永久失效)</span>';
+      } else if (isCooldown) {
+        statusChipsHtml += '<span class="abnormal-model-chip" style="background:#fef9c3;color:#854d0e;border:1px solid #fef08a;padding:1px 5px;font-size:10px;border-radius:4px;margin-left:4px;font-weight:600;display:inline-flex;align-items:center;gap:2px;" title="冷却中"><i class="fas fa-hourglass-half" style="font-size:9px;"></i>' + mId + ' (冷却中)</span>';
+      } else if (failCount > 0) {
+        statusChipsHtml += '<span class="abnormal-model-chip" style="background:#ffedd5;color:#c2410c;border:1px solid #fed7aa;padding:1px 5px;font-size:10px;border-radius:4px;margin-left:4px;font-weight:600;display:inline-flex;align-items:center;gap:2px;" title="警告: 累计失败 ' + failCount + '/3"><i class="fas fa-exclamation-triangle" style="font-size:9px;"></i>' + mId + ' (警告)</span>';
+      } else if (m.enabled === false) {
+        statusChipsHtml += '<span class="abnormal-model-chip" style="background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;padding:1px 5px;font-size:10px;border-radius:4px;margin-left:4px;font-weight:600;display:inline-flex;align-items:center;gap:2px;text-decoration:line-through;" title="已手动禁用"><i class="fas fa-minus-circle" style="font-size:9px;"></i>' + mId + ' (已手动禁用)</span>';
+      }
+    });
 
     var keysHtml = keysArr.map(function(k, ki) {
       return '<div class="fc mb-3 field-row" data-kidx="' + ki + '">' +
@@ -1605,19 +1729,30 @@ function renderProviderList() {
       var cooldownSec = isCooldown ? Math.ceil((m.cooldownUntil - Date.now()) / 1000) : 0;
       var failCount = m.failureCount || 0;
 
+      var styleAttr = '';
+      var titleText = '模型 ID';
       var statusBadge = '';
+      var unblockBtn = '';
       if (isPermDisabled) {
-        statusBadge = '<span class="bd" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;padding:2px 6px;font-size:11px;border-radius:4px;font-weight:600;" title="' + escapeHtml(permReason) + '"><i class="fas fa-ban"></i> 永久失效 (' + failCount + '/3)</span>' +
-          '<button class="btn btn-s btn-xs" style="padding:2px 6px;font-size:11px;" onclick="unblockModelBtn(this)" data-pid="' + pId + '" data-mid="' + mId + '" title="一键解封并恢复状态"><i class="fas fa-unlock"></i> 解封恢复</button>';
+        styleAttr = 'style="color: #ef4444; border-color: #fca5a5; font-weight: 600; background-color: #fef2f2;"';
+        titleText = '永久失效: ' + escapeHtml(permReason);
+        statusBadge = '<span class="bd" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;padding:2px 6px;font-size:11px;border-radius:4px;font-weight:600;" title="' + escapeHtml(permReason) + '"><i class="fas fa-ban"></i> 永久失效 (' + failCount + '/3)</span>';
+        unblockBtn = '<button class="btn btn-s btn-xs" style="padding:2px 6px;font-size:11px;" onclick="unblockModelBtn(this)" data-pid="' + pId + '" data-mid="' + mId + '" title="一键解封并恢复状态"><i class="fas fa-unlock"></i> 解封恢复</button>';
       } else if (isCooldown) {
-        statusBadge = '<span class="bd" style="background:#fefce8;color:#ca8a04;border:1px solid #fef08a;padding:2px 6px;font-size:11px;border-radius:4px;font-weight:600;" title="因异常进入冷却状态"><i class="fas fa-hourglass-half"></i> 冷却中 (' + cooldownSec + 's)</span>' +
-          '<button class="btn btn-s btn-xs" style="padding:2px 6px;font-size:11px;" onclick="unblockModelBtn(this)" data-pid="' + pId + '" data-mid="' + mId + '" title="重置冷却状态"><i class="fas fa-redo"></i> 重置冷却</button>';
+        styleAttr = 'style="border-color: #fcd34d; background-color: #fffbeb;"';
+        titleText = '因异常进入冷却状态';
+        statusBadge = '<span class="bd" style="background:#fefce8;color:#ca8a04;border:1px solid #fef08a;padding:2px 6px;font-size:11px;border-radius:4px;font-weight:600;" title="因异常进入冷却状态"><i class="fas fa-hourglass-half"></i> 冷却中 (' + cooldownSec + 's)</span>';
+        unblockBtn = '<button class="btn btn-s btn-xs" style="padding:2px 6px;font-size:11px;" onclick="unblockModelBtn(this)" data-pid="' + pId + '" data-mid="' + mId + '" title="重置冷却状态"><i class="fas fa-redo"></i> 重置冷却</button>';
       } else if (failCount > 0) {
-        statusBadge = '<span class="bd" style="background:#fff7ed;color:#ea580c;border:1px solid #ffedd5;padding:2px 6px;font-size:11px;border-radius:4px;font-weight:600;" title="曾出现探测或业务异常"><i class="fas fa-exclamation-triangle"></i> 警告 (失败 ' + failCount + '/3)</span>' +
-          '<button class="btn btn-s btn-xs" style="padding:2px 6px;font-size:11px;" onclick="unblockModelBtn(this)" data-pid="' + pId + '" data-mid="' + mId + '" title="清零失败计数"><i class="fas fa-check"></i> 清零恢复</button>';
+        styleAttr = 'style="border-color: #ffedd5; background-color: #fffaf0;"';
+        titleText = '曾出现探测或业务异常';
+        statusBadge = '<span class="bd" style="background:#fff7ed;color:#ea580c;border:1px solid #ffedd5;padding:2px 6px;font-size:11px;border-radius:4px;font-weight:600;" title="曾出现探测或业务异常"><i class="fas fa-exclamation-triangle"></i> 警告 (失败 ' + failCount + '/3)</span>';
+        unblockBtn = '<button class="btn btn-s btn-xs" style="padding:2px 6px;font-size:11px;" onclick="unblockModelBtn(this)" data-pid="' + pId + '" data-mid="' + mId + '" title="清零失败计数"><i class="fas fa-check"></i> 清零恢复</button>';
       } else if (m.enabled !== false) {
         statusBadge = '<span class="bd bd-on" style="padding:2px 6px;font-size:11px;border-radius:4px;"><i class="fas fa-check-circle"></i> 正常</span>';
       } else {
+        styleAttr = 'style="color: #64748b; border-color: #cbd5e1; background-color: #f1f5f9; text-decoration: line-through;"';
+        titleText = '模型已手动禁用';
         statusBadge = '<span class="bd bd-off" style="padding:2px 6px;font-size:11px;border-radius:4px;"><i class="fas fa-minus-circle"></i> 已禁用</span>';
       }
 
@@ -1628,14 +1763,21 @@ function renderProviderList() {
         '<option value="其他" ' + (mCat === '其他' ? 'selected' : '') + '>其他</option>' +
         '</select>';
 
-      return '<div class="fc field-row model-single-row" data-idx="' + mi + '">' +
-        '<input type="text" value="' + mId + '" class="fx1 model-id-input" id="mid-' + pId + '-' + mi + '" placeholder="模型 ID">' +
-        catSelect +
-        statusBadge +
-        '<span id="lat-' + pId + '-' + mi + '" class="latency-chip" title="模型通信延迟"><i class="fas fa-gauge-high"></i> <span class="lat-val">-- ms</span></span>' +
-        '<label class="tg" title="启用模型"><input type="checkbox" ' + (m.enabled !== false ? 'checked' : '') + ' id="men-' + pId + '-' + mi + '" onchange="markDirty(true)" aria-label="启用模型"><span class="sl"></span></label>' +
-        '<button class="icon-btn test-mdl-btn" onclick="testMdlBtn(this)" data-pid="' + pId + '" data-mid="' + mId + '" data-idx="' + mi + '" title="单独测试模型延迟" aria-label="测试模型延迟"><i class="fas fa-gauge-high" aria-hidden="true"></i></button>' +
-        '<button class="icon-btn" onclick="rmMdlBtn(this)" data-pid="' + pId + '" data-idx="' + mi + '" title="移除模型" aria-label="移除模型"><i class="fas fa-times" aria-hidden="true"></i></button>' +
+      return '<div class="model-single-row" data-idx="' + mi + '">' +
+        '<div class="model-row-line-1">' +
+          '<input type="text" value="' + mId + '" class="model-id-input" id="mid-' + pId + '-' + mi + '" placeholder="模型 ID" ' + styleAttr + ' title="' + titleText + '">' +
+          '<div class="model-row-actions-1">' +
+            '<label class="tg" title="启用模型"><input type="checkbox" ' + (m.enabled !== false ? 'checked' : '') + ' id="men-' + pId + '-' + mi + '" onchange="markDirty(true)" aria-label="启用模型"><span class="sl"></span></label>' +
+            '<button class="icon-btn" onclick="rmMdlBtn(this)" data-pid="' + pId + '" data-idx="' + mi + '" title="移除模型" aria-label="移除模型"><i class="fas fa-times" aria-hidden="true"></i></button>' +
+          '</div>' +
+        '</div>' +
+        '<div class="model-row-line-2">' +
+          catSelect +
+          statusBadge +
+          '<span id="lat-' + pId + '-' + mi + '" class="latency-chip" title="模型通信延迟"><i class="fas fa-gauge-high"></i> <span class="lat-val">-- ms</span></span>' +
+          unblockBtn +
+          '<button class="icon-btn test-mdl-btn" onclick="testMdlBtn(this)" data-pid="' + pId + '" data-mid="' + mId + '" data-idx="' + mi + '" title="单独测试模型延迟" aria-label="测试模型延迟"><i class="fas fa-gauge-high" aria-hidden="true"></i></button>' +
+        '</div>' +
         '</div>';
     }).join('');
 
@@ -1672,7 +1814,7 @@ function renderProviderList() {
 
     return '<article class="pi ' + pStatusClass + '" data-id="' + pId + '">' +
       '<div class="ps" onclick="togBtn(this)" data-pid="' + pId + '" role="button" tabindex="0" onkeydown="togKey(event,this)" aria-controls="dt-' + pId + '">' +
-        '<div class="l"><i class="fas fa-chevron-right provider-chevron" aria-hidden="true" id="ch-' + pId + '"></i><span class="provider-avatar" aria-hidden="true">' + escapeHtml((pName.charAt(0) || 'A').toUpperCase()) + '</span><div><h3>' + pName + '</h3><div class="pu"><code>' + pId + '</code><span>' + (isAnthropic ? 'Anthropic' : 'OpenAI') + '</span><span>' + keysArr.length + ' Keys</span><span>' + modelsArr.length + ' 模型</span>' + abnormalBadge + '</div></div></div>' +
+        '<div class="l"><i class="fas fa-chevron-right provider-chevron" aria-hidden="true" id="ch-' + pId + '"></i><span class="provider-avatar" aria-hidden="true">' + escapeHtml((pName.charAt(0) || 'A').toUpperCase()) + '</span><div><h3>' + pName + '</h3><div class="pu"><code>' + pId + '</code><span>' + (isAnthropic ? 'Anthropic' : 'OpenAI') + '</span><span>' + keysArr.length + ' Keys</span><span>' + modelsArr.length + ' 模型</span>' + statusChipsHtml + '</div></div></div>' +
         '<div class="fc fx-s0" onclick="event.stopPropagation()"><label class="tg"><input type="checkbox" ' + (isEnabled ? 'checked' : '') + ' id="en-' + pId + '" onchange="togglePbBtn(this)" data-pid="' + pId + '" aria-label="启用 ' + pName + '"><span class="sl"></span></label><span class="bd ' + (isEnabled ? 'bd-on' : 'bd-off') + '">' + (isEnabled ? '已启用' : '未启用') + '</span></div>' +
       '</div>' +
       '<div class="pd" id="dt-' + pId + '">' +

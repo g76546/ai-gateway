@@ -939,6 +939,8 @@ async function saveAllConfig() {
     if (data && data.success) {
       toast('保存成功！所有配置已一次性批量落盘写入 KV。', 'success');
       markDirty(false);
+      renderProviderList();
+      renderProxyKeyList();
     } else {
       var errMsg = (data && data.message) ? data.message : '未知系统错误';
       aM('保存失败：' + errMsg, 'error');

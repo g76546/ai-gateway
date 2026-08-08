@@ -436,7 +436,7 @@ export async function handleProxy(c: Context<{ Bindings: Env }>) {
           const errStatus = isContentEmpty ? 502 : response.status
           await recordModelFailure(c.env, providerId, modelId, errStatus, errReason)
           await recordLog(c.env, startTime, requestedModel, errStatus, errReason)
-          await recordBusinessLatency(c.env, `${providerId}/${modelId}`, Date.now() - startTime, false, isAutoRequest, sessionId)
+          await recordBusinessLatency(c.env, `${providerId}/${modelId}`, Date.now() - startTime, false, isAutoRequest)
           if (isAutoRequest && attempts < maxAttempts) {
             continue
           }
@@ -446,7 +446,7 @@ export async function handleProxy(c: Context<{ Bindings: Env }>) {
         }
 
         await recordLog(c.env, startTime, requestedModel, response.status, null)
-        await recordBusinessLatency(c.env, `${providerId}/${modelId}`, Date.now() - startTime, true, isAutoRequest, sessionId)
+        await recordBusinessLatency(c.env, `${providerId}/${modelId}`, Date.now() - startTime, true, isAutoRequest)
         return new Response(resText !== null ? resText : response.body, {
           status: response.status,
           statusText: response.statusText,
@@ -593,7 +593,7 @@ export async function handleProxy(c: Context<{ Bindings: Env }>) {
             'Cache-Control': 'no-store',
           }
           await recordLog(c.env, startTime, requestedModel, response.status, null)
-          await recordBusinessLatency(c.env, `${providerId}/${modelId}`, Date.now() - startTime, true, isAutoRequest, sessionId)
+          await recordBusinessLatency(c.env, `${providerId}/${modelId}`, Date.now() - startTime, true, isAutoRequest)
           return new Response(resText !== null ? resText : response.body, {
             status: response.status,
             headers: responseHeaders,
@@ -625,7 +625,7 @@ export async function handleProxy(c: Context<{ Bindings: Env }>) {
         const errMsg = (errorData as { error?: { message?: string } })?.error?.message || `HTTP ${response.status}`
         await recordModelFailure(c.env, providerId, modelId, response.status, errMsg)
         await recordLog(c.env, startTime, requestedModel, response.status, errMsg)
-        await recordBusinessLatency(c.env, `${providerId}/${modelId}`, Date.now() - startTime, false, isAutoRequest, sessionId)
+        await recordBusinessLatency(c.env, `${providerId}/${modelId}`, Date.now() - startTime, false, isAutoRequest)
         if (isAutoRequest && attempts < maxAttempts) {
           break // break standard key loop to let outer while-loop continue to next provider
         }
@@ -658,7 +658,7 @@ export async function handleProxy(c: Context<{ Bindings: Env }>) {
       const errMsg = `所有 API Key 已用完，最后一次错误: HTTP ${lastError.status}`
       await recordModelFailure(c.env, providerId, modelId, lastError.status || 502, errorBody)
       await recordLog(c.env, startTime, requestedModel, lastError.status || 502, errMsg)
-      await recordBusinessLatency(c.env, `${providerId}/${modelId}`, Date.now() - startTime, false, isAutoRequest, sessionId)
+      await recordBusinessLatency(c.env, `${providerId}/${modelId}`, Date.now() - startTime, false, isAutoRequest)
       if (isAutoRequest && attempts < maxAttempts) {
         continue // outer while-loop continue to next provider
       }

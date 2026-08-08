@@ -725,17 +725,6 @@ export async function selectAutoModel(
     candidates = activeTier1
   }
 
-  // 3.会话粘性：同一个会话id，优先复用历史调用成功过的模型；前提该模型仍然处于第一梯队且未冷却、未失效。
-  if (sessionId) {
-    const lastSuccessfulFullId = await kvGet(env, `auto:session:${sessionId}`)
-    if (lastSuccessfulFullId) {
-      const matched = candidates.find((m) => m.fullId === lastSuccessfulFullId)
-      if (matched) {
-        return { providerId: matched.providerId, modelId: matched.modelId, fullId: matched.fullId }
-      }
-    }
-  }
-
   // 2.分组内优先选择适配长上下文标记的文本模型。
   // 按照长上下文标记优先，其次按真实业务延迟 (businessStats) 排序选择最佳模型（完全不使用轻量探测延迟！）
   const sorted = [...candidates].sort((a, b) => {
@@ -764,16 +753,10 @@ export async function recordBusinessLatency(
   fullId: string,
   latency: number,
   success: boolean,
-  isAutoRequest: boolean = false,
-  sessionId: string | null = null
+  isAutoRequest: boolean = false
 ): Promise<void> {
   // 仅针对 auto/auto 业务流量生效
   if (!isAutoRequest) return
-
-  // 会话粘性落盘记录：
-  if (success && sessionId) {
-    await kvPut(env, `auto:session:${sessionId}`, fullId)
-  }
 
   let storage = await getTierStorage(env)
   if (!storage) return

@@ -521,27 +521,39 @@ ${H('管理')}
               }
             }
             let statusChipsHtml = '';
+            let permCount = 0;
+            let cooldownCount = 0;
+            let warningCount = 0;
+            let disabledCount = 0;
+
             (p.models || []).forEach((m) => {
-              const mId = m.id || '';
               const isPermDisabled = !!m.permanentlyDisabled;
               const isCooldown = typeof m.cooldownUntil === 'number' && Date.now() < m.cooldownUntil;
               const failCount = m.failureCount || 0;
 
-              if (isPermDisabled) {
-                statusChipsHtml += `<span class="abnormal-model-chip" style="background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;padding:1px 5px;font-size:10px;border-radius:4px;margin-left:4px;font-weight:600;display:inline-flex;align-items:center;gap:2px;" title="永久失效: ${escapePageHtml(m.disabledReason || '受上游故障影响永久失效')}"><i class="fas fa-ban" style="font-size:9px;"></i>${escapePageHtml(mId)} (永久失效)</span>`;
-              } else if (isCooldown) {
-                statusChipsHtml += `<span class="abnormal-model-chip" style="background:#fef9c3;color:#854d0e;border:1px solid #fef08a;padding:1px 5px;font-size:10px;border-radius:4px;margin-left:4px;font-weight:600;display:inline-flex;align-items:center;gap:2px;" title="冷却中"><i class="fas fa-hourglass-half" style="font-size:9px;"></i>${escapePageHtml(mId)} (冷却中)</span>`;
-              } else if (failCount > 0) {
-                statusChipsHtml += `<span class="abnormal-model-chip" style="background:#ffedd5;color:#c2410c;border:1px solid #fed7aa;padding:1px 5px;font-size:10px;border-radius:4px;margin-left:4px;font-weight:600;display:inline-flex;align-items:center;gap:2px;" title="警告: 累计失败 ${failCount}/3"><i class="fas fa-exclamation-triangle" style="font-size:9px;"></i>${escapePageHtml(mId)} (警告)</span>`;
-              } else if (m.enabled === false) {
-                statusChipsHtml += `<span class="abnormal-model-chip" style="background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;padding:1px 5px;font-size:10px;border-radius:4px;margin-left:4px;font-weight:600;display:inline-flex;align-items:center;gap:2px;text-decoration:line-through;" title="已手动禁用"><i class="fas fa-minus-circle" style="font-size:9px;"></i>${escapePageHtml(mId)} (手动禁用)</span>`;
-              }
+              if (isPermDisabled) permCount++;
+              else if (isCooldown) cooldownCount++;
+              else if (failCount > 0) warningCount++;
+              else if (m.enabled === false) disabledCount++;
             });
+
+            if (permCount > 0) {
+              statusChipsHtml += `<span class="abnormal-model-chip" style="background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;padding:1px 5px;font-size:10px;border-radius:4px;margin-left:4px;font-weight:600;display:inline-flex;align-items:center;gap:2px;" title="${permCount} 个模型永久失效"><i class="fas fa-ban" style="font-size:9px;"></i>${permCount} 永久失效</span>`;
+            }
+            if (cooldownCount > 0) {
+              statusChipsHtml += `<span class="abnormal-model-chip" style="background:#fef9c3;color:#854d0e;border:1px solid #fef08a;padding:1px 5px;font-size:10px;border-radius:4px;margin-left:4px;font-weight:600;display:inline-flex;align-items:center;gap:2px;" title="${cooldownCount} 个模型冷却中"><i class="fas fa-hourglass-half" style="font-size:9px;"></i>${cooldownCount} 冷却中</span>`;
+            }
+            if (warningCount > 0) {
+              statusChipsHtml += `<span class="abnormal-model-chip" style="background:#ffedd5;color:#c2410c;border:1px solid #fed7aa;padding:1px 5px;font-size:10px;border-radius:4px;margin-left:4px;font-weight:600;display:inline-flex;align-items:center;gap:2px;" title="${warningCount} 个模型存在失败警告"><i class="fas fa-exclamation-triangle" style="font-size:9px;"></i>${warningCount} 警告</span>`;
+            }
+            if (disabledCount > 0) {
+              statusChipsHtml += `<span class="abnormal-model-chip" style="background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;padding:1px 5px;font-size:10px;border-radius:4px;margin-left:4px;font-weight:600;display:inline-flex;align-items:center;gap:2px;text-decoration:line-through;" title="${disabledCount} 个模型已手动禁用"><i class="fas fa-minus-circle" style="font-size:9px;"></i>${disabledCount} 禁用</span>`;
+            }
 
             return `
           <article class="pi ${pStatusClass}" data-id="${escapePageHtml(p.id)}">
             <div class="ps" onclick="tog('${p.id}')" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();tog('${p.id}')}" aria-controls="dt-${escapePageHtml(p.id)}">
-              <div class="l"><i class="fas fa-chevron-right provider-chevron" aria-hidden="true" id="ch-${escapePageHtml(p.id)}"></i><span class="provider-avatar" aria-hidden="true">${escapePageHtml(p.name.charAt(0).toUpperCase() || 'A')}</span><div><h3>${escapePageHtml(p.name)}</h3><div class="pu"><code>${escapePageHtml(p.id)}</code><span>${(p.apiType||'openai')==='anthropic'?'Anthropic':'OpenAI'}</span><span>${p.apiKeys.length} Keys</span><span>${p.models.length} 模型</span></div></div></div>
+              <div class="l"><i class="fas fa-chevron-right provider-chevron" aria-hidden="true" id="ch-${escapePageHtml(p.id)}"></i><span class="provider-avatar" aria-hidden="true">${escapePageHtml(p.name.charAt(0).toUpperCase() || 'A')}</span><div><h3>${escapePageHtml(p.name)}</h3><div class="pu"><code>${escapePageHtml(p.id)}</code><span>${(p.apiType||'openai')==='anthropic'?'Anthropic':'OpenAI'}</span><span>${p.apiKeys.length} Keys</span><span>${p.models.length} 模型</span>${statusChipsHtml}</div></div></div>
               <div class="fc fx-s0" onclick="event.stopPropagation()"><label class="tg"><input type="checkbox" ${p.enabled?'checked':''} id="en-${escapePageHtml(p.id)}" onchange="togglePb('${p.id}',this.checked)" aria-label="启用 ${escapePageHtml(p.name)}"><span class="sl"></span></label><span class="bd ${p.enabled?'bd-on':'bd-off'}">${p.enabled?'已启用':'未启用'}</span></div>
             </div>
             <div class="pd" id="dt-${escapePageHtml(p.id)}">
@@ -1702,26 +1714,42 @@ function renderProviderList() {
 
     var statusChipsHtml = '';
     var abnormalCount = 0;
+    var permCount = 0;
+    var cooldownCount = 0;
+    var warningCount = 0;
+    var disabledCount = 0;
+
     modelsArr.forEach(function(m) {
-      var mId = escapeHtml(m.id || '');
       var isPermDisabled = !!m.permanentlyDisabled;
       var isCooldown = m.cooldownUntil && Date.now() < m.cooldownUntil;
       var failCount = m.failureCount || 0;
 
-      if (isPermDisabled || isCooldown || failCount > 0) {
-        abnormalCount++;
-      }
-
       if (isPermDisabled) {
-        statusChipsHtml += '<span class="abnormal-model-chip" style="background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;padding:1px 5px;font-size:10px;border-radius:4px;margin-left:4px;font-weight:600;display:inline-flex;align-items:center;gap:2px;" title="永久失效: ' + escapeHtml(m.disabledReason || '受上游故障影响永久失效') + '"><i class="fas fa-ban" style="font-size:9px;"></i>' + mId + ' (永久失效)</span>';
+        permCount++;
+        abnormalCount++;
       } else if (isCooldown) {
-        statusChipsHtml += '<span class="abnormal-model-chip" style="background:#fef9c3;color:#854d0e;border:1px solid #fef08a;padding:1px 5px;font-size:10px;border-radius:4px;margin-left:4px;font-weight:600;display:inline-flex;align-items:center;gap:2px;" title="冷却中"><i class="fas fa-hourglass-half" style="font-size:9px;"></i>' + mId + ' (冷却中)</span>';
+        cooldownCount++;
+        abnormalCount++;
       } else if (failCount > 0) {
-        statusChipsHtml += '<span class="abnormal-model-chip" style="background:#ffedd5;color:#c2410c;border:1px solid #fed7aa;padding:1px 5px;font-size:10px;border-radius:4px;margin-left:4px;font-weight:600;display:inline-flex;align-items:center;gap:2px;" title="警告: 累计失败 ' + failCount + '/3"><i class="fas fa-exclamation-triangle" style="font-size:9px;"></i>' + mId + ' (警告)</span>';
+        warningCount++;
+        abnormalCount++;
       } else if (m.enabled === false) {
-        statusChipsHtml += '<span class="abnormal-model-chip" style="background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;padding:1px 5px;font-size:10px;border-radius:4px;margin-left:4px;font-weight:600;display:inline-flex;align-items:center;gap:2px;text-decoration:line-through;" title="已手动禁用"><i class="fas fa-minus-circle" style="font-size:9px;"></i>' + mId + ' (已手动禁用)</span>';
+        disabledCount++;
       }
     });
+
+    if (permCount > 0) {
+      statusChipsHtml += '<span class="abnormal-model-chip" style="background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;padding:1px 5px;font-size:10px;border-radius:4px;margin-left:4px;font-weight:600;display:inline-flex;align-items:center;gap:2px;" title="' + permCount + ' 个模型永久失效"><i class="fas fa-ban" style="font-size:9px;"></i>' + permCount + ' 永久失效</span>';
+    }
+    if (cooldownCount > 0) {
+      statusChipsHtml += '<span class="abnormal-model-chip" style="background:#fef9c3;color:#854d0e;border:1px solid #fef08a;padding:1px 5px;font-size:10px;border-radius:4px;margin-left:4px;font-weight:600;display:inline-flex;align-items:center;gap:2px;" title="' + cooldownCount + ' 个模型冷却中"><i class="fas fa-hourglass-half" style="font-size:9px;"></i>' + cooldownCount + ' 冷却中</span>';
+    }
+    if (warningCount > 0) {
+      statusChipsHtml += '<span class="abnormal-model-chip" style="background:#ffedd5;color:#c2410c;border:1px solid #fed7aa;padding:1px 5px;font-size:10px;border-radius:4px;margin-left:4px;font-weight:600;display:inline-flex;align-items:center;gap:2px;" title="' + warningCount + ' 个模型存在失败警告"><i class="fas fa-exclamation-triangle" style="font-size:9px;"></i>' + warningCount + ' 警告</span>';
+    }
+    if (disabledCount > 0) {
+      statusChipsHtml += '<span class="abnormal-model-chip" style="background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;padding:1px 5px;font-size:10px;border-radius:4px;margin-left:4px;font-weight:600;display:inline-flex;align-items:center;gap:2px;text-decoration:line-through;" title="' + disabledCount + ' 个模型已手动禁用"><i class="fas fa-minus-circle" style="font-size:9px;"></i>' + disabledCount + ' 禁用</span>';
+    }
 
     var keysHtml = keysArr.map(function(k, ki) {
       return '<div class="fc mb-3 field-row" data-kidx="' + ki + '">' +

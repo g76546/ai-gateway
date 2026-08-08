@@ -182,53 +182,133 @@ ${H('首页')}
   </section>
 
   <section class="shell directory" aria-labelledby="directory-title">
-    <div class="section-heading">
-      <div>
+    <div class="directory-toolbar">
+      <div class="directory-header">
         <h2 id="directory-title">模型列表</h2>
-        <p>点击模型 ID 即可复制；这里只展示已启用的提供商与模型。</p>
+        <p>点击模型卡片或右侧复制按钮即可复制完整模型 ID (<code>provider_id/model_id</code>)</p>
       </div>
-      <label class="search-field" for="model-search">
-        <i class="fas fa-search" aria-hidden="true"></i>
-        <span class="sr-only">搜索提供商或模型</span>
-        <input id="model-search" type="search" placeholder="搜索提供商或模型" autocomplete="off">
-      </label>
+
+      <div class="directory-search-bar">
+        <label class="search-field" for="model-search">
+          <i class="fas fa-search" aria-hidden="true"></i>
+          <span class="sr-only">搜索提供商或模型</span>
+          <input id="model-search" type="search" placeholder="搜索模型名称或提供商 (例: qwen, deepseek, gemini...)" autocomplete="off">
+        </label>
+      </div>
+
+      <div class="filter-chips" id="filter-chips">
+        <button type="button" class="filter-chip is-active" data-status="all">
+          <i class="fas fa-cubes" aria-hidden="true"></i> 全部 (<span id="cnt-all">0</span>)
+        </button>
+        <button type="button" class="filter-chip" data-status="ok">
+          <i class="fas fa-check-circle" style="color:#16a34a;" aria-hidden="true"></i> 正常 (<span id="cnt-ok">0</span>)
+        </button>
+        <button type="button" class="filter-chip" data-status="cd">
+          <i class="fas fa-hourglass-half" style="color:#d97706;" aria-hidden="true"></i> 冷却 (<span id="cnt-cd">0</span>)
+        </button>
+        <button type="button" class="filter-chip" data-status="err">
+          <i class="fas fa-ban" style="color:#dc2626;" aria-hidden="true"></i> 失效 (<span id="cnt-err">0</span>)
+        </button>
+      </div>
     </div>
 
     <div class="provider-index" id="provider-index">
       ${enabledProviders.length ? enabledProviders.map((provider) => {
         const models = provider.models.filter((model) => model.enabled)
-        return `<article class="provider-row" data-search="${escapePageHtml(`${provider.name} ${provider.id} ${models.map((model) => model.id).join(' ')}`.toLowerCase())}">
-          <div class="provider-row__identity">
-            <span class="provider-row__mark" aria-hidden="true">${escapePageHtml(provider.name.charAt(0).toUpperCase() || 'A')}</span>
-            <div>
-              <h3>${escapePageHtml(provider.name)}</h3>
-              <p><code>${escapePageHtml(provider.id)}</code><span>${(provider.apiType || 'openai') === 'anthropic' ? 'Anthropic' : 'OpenAI'} 兼容</span></p>
+        let okCount = 0
+        let cdCount = 0
+        let errCount = 0
+
+        models.forEach((m) => {
+          const isPerm = !!m.permanentlyDisabled
+          const isCd = typeof m.cooldownUntil === 'number' && Date.now() < m.cooldownUntil
+          if (isPerm) errCount++
+          else if (isCd) cdCount++
+          else okCount++
+        })
+
+        const INITIAL_LIMIT = 12
+        const hasMore = models.length > INITIAL_LIMIT
+
+        return `<article class="provider-card" data-provider-id="${escapePageHtml(provider.id.toLowerCase())}" data-provider-name="${escapePageHtml(provider.name.toLowerCase())}">
+          <div class="provider-card__header">
+            <div class="provider-card__identity">
+              <span class="provider-avatar" aria-hidden="true">${escapePageHtml((provider.name.charAt(0) || 'A').toUpperCase())}</span>
+              <div>
+                <div class="provider-card__title">
+                  <h3>${escapePageHtml(provider.name)}</h3>
+                  <code class="provider-id-badge">${escapePageHtml(provider.id)}</code>
+                  <span class="protocol-chip">${(provider.apiType || 'openai') === 'anthropic' ? 'Anthropic' : 'OpenAI'} 兼容</span>
+                </div>
+                <div class="provider-card__meta">
+                  <span class="meta-tag">共 ${models.length} 个模型</span>
+                  ${okCount > 0 ? `<span class="meta-tag meta-tag--ok"><i class="fas fa-check-circle" aria-hidden="true"></i> ${okCount} 正常</span>` : ''}
+                  ${cdCount > 0 ? `<span class="meta-tag meta-tag--cd"><i class="fas fa-hourglass-half" aria-hidden="true"></i> ${cdCount} 冷却</span>` : ''}
+                  ${errCount > 0 ? `<span class="meta-tag meta-tag--err"><i class="fas fa-ban" aria-hidden="true"></i> ${errCount} 失效</span>` : ''}
+                </div>
+              </div>
             </div>
           </div>
-          <div class="provider-row__models">
-            ${models.length ? models.map((model) => {
-              const fullModel = `${provider.id}/${model.id}`
-              const isPermDisabled = !!model.permanentlyDisabled
-              const isCooldown = typeof model.cooldownUntil === 'number' && Date.now() < model.cooldownUntil
-              const cooldownSec = isCooldown && typeof model.cooldownUntil === 'number' ? Math.ceil((model.cooldownUntil - Date.now()) / 1000) : 0
 
-              let statusHtml = ''
-              if (isPermDisabled) {
-                statusHtml = `<span style="display:inline-flex;align-items:center;gap:2px;font-size:10px;padding:1px 4px;border-radius:3px;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;margin-left:4px;" title="${escapePageHtml(model.disabledReason || '受上游故障影响永久失效')}"><i class="fas fa-ban" style="font-size:9px;"></i>失效</span>`
-              } else if (isCooldown) {
-                statusHtml = `<span style="display:inline-flex;align-items:center;gap:2px;font-size:10px;padding:1px 4px;border-radius:3px;background:#fefce8;color:#ca8a04;border:1px solid #fef08a;margin-left:4px;"><i class="fas fa-hourglass-half" style="font-size:9px;"></i>冷却(${cooldownSec}s)</span>`
-              } else {
-                statusHtml = `<span style="display:inline-flex;align-items:center;gap:2px;font-size:10px;padding:1px 4px;border-radius:3px;background:#e8f5e9;color:#2e7d32;border:1px solid #c8e6c9;margin-left:4px;"><i class="fas fa-check-circle" style="font-size:9px;"></i>正常</span>`
-              }
+          <div class="provider-card__body">
+            ${models.length ? `
+              <div class="models-grid" id="grid-${escapePageHtml(provider.id)}">
+                ${models.map((model, idx) => {
+                  const fullModel = `${provider.id}/${model.id}`
+                  const isPermDisabled = !!model.permanentlyDisabled
+                  const isCooldown = typeof model.cooldownUntil === 'number' && Date.now() < model.cooldownUntil
+                  const cooldownSec = isCooldown && typeof model.cooldownUntil === 'number' ? Math.ceil((model.cooldownUntil - Date.now()) / 1000) : 0
+                  
+                  let statusKey = 'ok'
+                  let statusBadgeHtml = ''
+                  if (isPermDisabled) {
+                    statusKey = 'err'
+                    statusBadgeHtml = `<span class="m-badge m-badge--err" title="${escapePageHtml(model.disabledReason || '永久失效')}"><i class="fas fa-ban" aria-hidden="true"></i>失效</span>`
+                  } else if (isCooldown) {
+                    statusKey = 'cd'
+                    statusBadgeHtml = `<span class="m-badge m-badge--cd" title="冷却中"><i class="fas fa-hourglass-half" aria-hidden="true"></i>冷却(${cooldownSec}s)</span>`
+                  } else {
+                    statusKey = 'ok'
+                    statusBadgeHtml = `<span class="m-badge m-badge--ok"><i class="fas fa-check-circle" aria-hidden="true"></i>正常</span>`
+                  }
 
-              return `<button class="model-token copy-control" type="button" data-copy="${escapePageHtml(fullModel)}" style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;min-height:auto;"><code>${escapePageHtml(fullModel)}</code>${statusHtml}<i class="far fa-copy" aria-hidden="true" style="margin-left:4px;"></i></button>`
-            }).join('') : '<span class="empty-inline">暂无启用模型</span>'}
+                  const isHiddenInitially = idx >= INITIAL_LIMIT ? 'is-collapsed' : ''
+
+                  return `<div class="model-card copy-control ${isHiddenInitially}" 
+                               data-copy="${escapePageHtml(fullModel)}" 
+                               data-model-id="${escapePageHtml(model.id.toLowerCase())}" 
+                               data-full-id="${escapePageHtml(fullModel.toLowerCase())}"
+                               data-status="${statusKey}"
+                               data-index="${idx}">
+                    <div class="model-card__info">
+                      <code class="model-card__name" title="点击复制完整ID: ${escapePageHtml(fullModel)}">${escapePageHtml(model.id)}</code>
+                      ${statusBadgeHtml}
+                    </div>
+                    <button class="model-card__copy-btn" type="button" aria-label="复制 ${escapePageHtml(fullModel)}">
+                      <i class="far fa-copy" aria-hidden="true"></i>
+                    </button>
+                  </div>`
+                }).join('')}
+              </div>
+
+              ${hasMore ? `
+                <div class="provider-card__footer">
+                  <button type="button" class="btn-expand-models" data-provider="${escapePageHtml(provider.id)}" data-total="${models.length}">
+                    <i class="fas fa-chevron-down" aria-hidden="true"></i> 展开剩余 ${models.length - INITIAL_LIMIT} 个模型
+                  </button>
+                </div>
+              ` : ''}
+            ` : '<div class="empty-inline">暂无启用模型</div>'}
           </div>
-          <span class="status-badge status-badge--on"><i aria-hidden="true"></i>已启用</span>
         </article>`
       }).join('') : `<div class="empty-state"><i class="fas fa-cubes" aria-hidden="true"></i><h3>尚无可用模型</h3><p>管理员启用提供商和模型后，它们会出现在这里。</p>${isLoggedIn ? '<a class="btn btn-p" href="/admin">前往管理控制台</a>' : ''}</div>`}
     </div>
-    <div id="search-empty" class="empty-state hd"><i class="fas fa-search" aria-hidden="true"></i><h3>没有匹配结果</h3><p>请尝试输入提供商名称、ID 或模型名称。</p></div>
+    <div id="search-empty" class="empty-state hd">
+      <i class="fas fa-search" aria-hidden="true"></i>
+      <h3>没有匹配的模型</h3>
+      <p>尝试更短或更通用的关键字，或清除筛选条件。</p>
+      <button type="button" class="btn btn-s" style="margin-top:0.5rem;" onclick="resetSearch()"><i class="fas fa-redo" aria-hidden="true"></i> 清除筛选与搜索</button>
+    </div>
   </section>
 </main>
 
@@ -236,7 +316,7 @@ ${renderSiteFooter(SITE_CONFIG.title)}
 
 <script>
 (function () {
-  // 自动从 localStorage 恢复会话 Cookie 并同步导航按钮状态，防止 iframe 跨域 Cookie 丢失导致登录失效
+  // 自动从 localStorage 恢复会话 Cookie 并同步导航按钮状态
   var savedToken = localStorage.getItem('admin_token');
   if (savedToken) {
     if (!document.cookie.includes('session_id=')) {
@@ -249,43 +329,137 @@ ${renderSiteFooter(SITE_CONFIG.title)}
     }
   }
 
-  var status = document.getElementById('copy-status')
-  document.querySelectorAll('.copy-control').forEach(function (button) {
-    button.addEventListener('click', async function () {
-      var text = button.getAttribute('data-copy') || ''
-      var icon = button.querySelector('i')
-      var label = button.querySelector('span')
+  // 复制控制
+  var copyStatus = document.getElementById('copy-status');
+  document.querySelectorAll('.copy-control').forEach(function (card) {
+    card.addEventListener('click', async function (e) {
+      e.stopPropagation();
+      var text = card.getAttribute('data-copy') || '';
+      var icon = card.querySelector('.model-card__copy-btn i') || card.querySelector('i');
       try {
-        await navigator.clipboard.writeText(text)
-        button.setAttribute('data-state', 'success')
-        if (icon) icon.className = 'fas fa-check c-s'
-        if (label) label.textContent = '已复制'
-        if (status) status.textContent = '已复制 ' + text
+        await navigator.clipboard.writeText(text);
+        card.setAttribute('data-state', 'success');
+        if (icon) icon.className = 'fas fa-check';
+        if (copyStatus) copyStatus.textContent = '已复制 ' + text;
         window.setTimeout(function () {
-          button.removeAttribute('data-state')
-          if (icon) icon.className = 'far fa-copy'
-          if (label) label.textContent = '复制'
-        }, 1800)
+          card.removeAttribute('data-state');
+          if (icon) icon.className = 'far fa-copy';
+        }, 1800);
       } catch (error) {
-        button.setAttribute('data-state', 'error')
-        if (status) status.textContent = '复制失败，请手动选择文本。'
+        card.setAttribute('data-state', 'error');
+        if (copyStatus) copyStatus.textContent = '复制失败，请手动复制。';
       }
-    })
-  })
+    });
+  });
 
-  var search = document.getElementById('model-search')
-  var rows = Array.from(document.querySelectorAll('.provider-row'))
-  var empty = document.getElementById('search-empty')
-  if (search) search.addEventListener('input', function () {
-    var query = search.value.trim().toLowerCase()
-    var visible = 0
-    rows.forEach(function (row) {
-      var matched = !query || (row.getAttribute('data-search') || '').includes(query)
-      row.classList.toggle('hd', !matched)
-      if (matched) visible++
-    })
-    if (empty) empty.classList.toggle('hd', visible > 0 || !query)
-  })
+  // 展开 / 折叠模型控制
+  document.querySelectorAll('.btn-expand-models').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var total = parseInt(btn.getAttribute('data-total') || '0', 10);
+      var card = btn.closest('.provider-card');
+      if (!card) return;
+      var isExpanded = card.classList.contains('is-expanded');
+      if (isExpanded) {
+        card.classList.remove('is-expanded');
+        btn.innerHTML = '<i class="fas fa-chevron-down" aria-hidden="true"></i> 展开剩余 ' + (total - 12) + ' 个模型';
+      } else {
+        card.classList.add('is-expanded');
+        btn.innerHTML = '<i class="fas fa-chevron-up" aria-hidden="true"></i> 折叠模型列表';
+      }
+    });
+  });
+
+  // 统计计算与实时搜索 / 状态过滤
+  var searchInput = document.getElementById('model-search');
+  var filterChips = document.querySelectorAll('.filter-chip');
+  var providerCards = Array.from(document.querySelectorAll('.provider-card'));
+  var emptyState = document.getElementById('search-empty');
+
+  var activeStatus = 'all';
+
+  function updateCounts() {
+    var cntAll = 0, cntOk = 0, cntCd = 0, cntErr = 0;
+    document.querySelectorAll('.model-card').forEach(function (m) {
+      cntAll++;
+      var st = m.getAttribute('data-status');
+      if (st === 'ok') cntOk++;
+      else if (st === 'cd') cntCd++;
+      else if (st === 'err') cntErr++;
+    });
+
+    var elAll = document.getElementById('cnt-all'); if (elAll) elAll.textContent = cntAll;
+    var elOk = document.getElementById('cnt-ok'); if (elOk) elOk.textContent = cntOk;
+    var elCd = document.getElementById('cnt-cd'); if (elCd) elCd.textContent = cntCd;
+    var elErr = document.getElementById('cnt-err'); if (elErr) elErr.textContent = cntErr;
+  }
+
+  function applyFilters() {
+    var query = (searchInput ? searchInput.value : '').trim().toLowerCase();
+    var isSearching = query.length > 0 || activeStatus !== 'all';
+
+    var totalVisibleModels = 0;
+
+    providerCards.forEach(function (pCard) {
+      var pName = pCard.getAttribute('data-provider-name') || '';
+      var pId = pCard.getAttribute('data-provider-id') || '';
+      var modelCards = Array.from(pCard.querySelectorAll('.model-card'));
+
+      if (isSearching) {
+        pCard.classList.add('is-searching');
+      } else {
+        pCard.classList.remove('is-searching');
+      }
+
+      var visibleInProvider = 0;
+
+      modelCards.forEach(function (mCard) {
+        var mId = mCard.getAttribute('data-model-id') || '';
+        var fId = mCard.getAttribute('data-full-id') || '';
+        var st = mCard.getAttribute('data-status') || '';
+
+        var matchesSearch = !query || pName.includes(query) || pId.includes(query) || mId.includes(query) || fId.includes(query);
+        var matchesStatus = activeStatus === 'all' || st === activeStatus;
+
+        var isVisible = matchesSearch && matchesStatus;
+        mCard.classList.toggle('hd', !isVisible);
+
+        if (isVisible) {
+          visibleInProvider++;
+          totalVisibleModels++;
+        }
+      });
+
+      pCard.classList.toggle('hd', visibleInProvider === 0);
+    });
+
+    if (emptyState) {
+      emptyState.classList.toggle('hd', totalVisibleModels > 0 || (!query && activeStatus === 'all'));
+    }
+  }
+
+  window.resetSearch = function() {
+    if (searchInput) searchInput.value = '';
+    activeStatus = 'all';
+    filterChips.forEach(function(chip) {
+      chip.classList.toggle('is-active', chip.getAttribute('data-status') === 'all');
+    });
+    applyFilters();
+  };
+
+  if (searchInput) {
+    searchInput.addEventListener('input', applyFilters);
+  }
+
+  filterChips.forEach(function (chip) {
+    chip.addEventListener('click', function () {
+      filterChips.forEach(function (c) { c.classList.remove('is-active'); });
+      chip.classList.add('is-active');
+      activeStatus = chip.getAttribute('data-status') || 'all';
+      applyFilters();
+    });
+  });
+
+  updateCounts();
 })()
 </script>
 </body></html>`)

@@ -1004,6 +1004,10 @@ function testMdlBtn(btn) {
   var pid = btn.getAttribute('data-pid');
   var mid = btn.getAttribute('data-mid');
   var idx = parseInt(btn.getAttribute('data-idx') || '0', 10);
+  var inp = document.getElementById('mid-' + pid + '-' + idx);
+  if (inp && inp.value.trim()) {
+    mid = inp.value.trim();
+  }
   testMdl(pid, mid, idx, btn);
 }
 
@@ -1637,10 +1641,17 @@ function getMdl(id) {
   if (!c) return []
   const items = c.querySelectorAll('[data-idx]')
   const seen = new Set()
+  var pObj = (typeof draftProviders !== 'undefined' && Array.isArray(draftProviders)) ? draftProviders.find(function(x) { return x.id === id; }) : null;
+  var oldModelsMap = {};
+  if (pObj && pObj.models) {
+    pObj.models.forEach(function(m) { if (m && m.id) oldModelsMap[m.id] = m; });
+  }
+
   return Array.from(items).map(item => {
     const idx = parseInt(item.dataset.idx)
     const inp = document.getElementById('mid-' + id + '-' + idx)
     const chk = document.getElementById('men-' + id + '-' + idx)
+    const catSel = item.querySelector('select')
     const mid = inp ? inp.value.trim() : ''
     if (!mid) return null
     if (seen.has(mid)) {
@@ -1649,7 +1660,10 @@ function getMdl(id) {
     }
     seen.add(mid)
     const en = chk ? chk.checked : true
-    return { id: mid, enabled: en }
+    const cat = catSel ? catSel.value : '文本'
+
+    var old = oldModelsMap[mid] || {};
+    return Object.assign({}, old, { id: mid, enabled: en, category: cat });
   }).filter(Boolean)
 }
 
@@ -1686,23 +1700,21 @@ function addMdl(id) {
 
   const d = document.createElement('div')
   d.className = 'model-single-row'
-  d.dataset.idx = cnt
+  d.setAttribute('data-idx', cnt)
   d.innerHTML = '<div class="model-row-line-1">' +
     '<input type="text" value="' + escapeHtml(mid) + '" class="model-id-input" id="mid-' + escapeHtml(id) + '-' + cnt + '" placeholder="模型 ID">' +
     '<div class="model-row-actions-1">' +
       '<label class="tg" title="启用模型"><input type="checkbox" checked id="men-' + escapeHtml(id) + '-' + cnt + '" onchange="markDirty(true)"><span class="sl"></span></label>' +
-      '<button class="icon-btn" id="rm-' + escapeHtml(id) + '-' + cnt + '" title="移除模型" aria-label="移除模型"><i class="fas fa-times"></i></button>' +
+      '<button class="icon-btn" onclick="rmMdlBtn(this)" data-pid="' + escapeHtml(id) + '" data-idx="' + cnt + '" title="移除模型" aria-label="移除模型"><i class="fas fa-times" aria-hidden="true"></i></button>' +
     '</div>' +
   '</div>' +
   '<div class="model-row-line-2">' +
     catSelect +
     statusBadge +
-    '<span id="lat-' + escapeHtml(id) + '-' + cnt + '" class="latency-chip" title="点击图标测试延迟"><i class="fas fa-gauge-high"></i> <span class="lat-val">-- ms</span></span>' +
-    '<button class="icon-btn test-mdl-btn" id="tm-' + escapeHtml(id) + '-' + cnt + '" title="单独测试模型延迟" aria-label="测试模型延迟"><i class="fas fa-gauge-high"></i></button>' +
+    '<span id="lat-' + escapeHtml(id) + '-' + cnt + '" class="latency-chip" title="模型通信延迟"><i class="fas fa-gauge-high"></i> <span class="lat-val">-- ms</span></span>' +
+    '<button class="icon-btn test-mdl-btn" onclick="testMdlBtn(this)" data-pid="' + escapeHtml(id) + '" data-mid="' + escapeHtml(mid) + '" data-idx="' + cnt + '" title="单独测试模型延迟" aria-label="测试模型延迟"><i class="fas fa-gauge-high" aria-hidden="true"></i></button>' +
   '</div>';
   c.appendChild(d)
-  document.getElementById('tm-' + id + '-' + cnt).addEventListener('click', function() { testMdl(id, mid, cnt, this) })
-  document.getElementById('rm-' + id + '-' + cnt).addEventListener('click', function() { rmMdl(id, cnt) })
   inp.value = ''
   markDirty(true)
   filterAdminModels(id)
@@ -1784,9 +1796,12 @@ async function testAllModelsInProviderBtn(btn) {
     var testBtns = c.querySelectorAll('.test-mdl-btn');
     for (var i = 0; i < testBtns.length; i++) {
       var b = testBtns[i];
-      var mid = b.dataset.mid;
-      var idx = b.dataset.idx;
-      await testMdl(pId, mid, idx, b);
+      var idx = b.getAttribute('data-idx') || b.dataset.idx || String(i);
+      var inp = document.getElementById('mid-' + pId + '-' + idx);
+      var mid = (inp && inp.value.trim()) ? inp.value.trim() : (b.getAttribute('data-mid') || b.dataset.mid || '');
+      if (mid) {
+        await testMdl(pId, mid, parseInt(idx, 10), b);
+      }
     }
     toast('提供商 ' + pId + ' 模型测速已完成', 'success');
   } finally {

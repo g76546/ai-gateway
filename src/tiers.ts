@@ -484,7 +484,11 @@ export async function backfillTier1FromTier2(
     const runWheelForGroup = async (groupCandidates: typeof candidates) => {
       if (groupCandidates.length === 0 || currentSlotsNeeded <= 0) return
 
-      // 按 providerId 将模型分组
+      // 获取全量提供商 ID 列表，以支持动态数量提供商无缝轮转（Round-Robin）
+      const allProviders = await getProviders(env)
+      const allProviderIds = allProviders.map((p) => p.id).sort()
+
+      // 按 providerId 将候选模型分组
       const providerToModels: Record<string, typeof candidates> = {}
       for (const cand of groupCandidates) {
         if (!providerToModels[cand.providerId]) {
@@ -493,18 +497,24 @@ export async function backfillTier1FromTier2(
         providerToModels[cand.providerId].push(cand)
       }
 
-      // 获取所有包含候选模型的提供商 ID 并排序
-      let providerIds = Object.keys(providerToModels).sort()
+      let providerIds = Object.keys(providerToModels)
 
-      // 1. 探测游标持久化存 KV：如果存在上一次的游标，则从它的下一个提供商开始遍历
-      const lastCursorProviderId = storage.lastCursorProviderId
-      if (lastCursorProviderId && providerIds.includes(lastCursorProviderId)) {
-        const index = providerIds.indexOf(lastCursorProviderId)
-        const nextIndex = (index + 1) % providerIds.length
-        providerIds = [
-          ...providerIds.slice(nextIndex),
-          ...providerIds.slice(0, nextIndex)
-        ]
+      // 1. 探测游标持久化存 KV：如果在全量提供商中找到上一次游标，按轮询偏置距离（Round-Robin Offset）排序
+      const lastCursor = storage.lastCursorProviderId
+      if (lastCursor && allProviderIds.includes(lastCursor)) {
+        const lastIdx = allProviderIds.indexOf(lastCursor)
+        const N = allProviderIds.length
+        providerIds.sort((a, b) => {
+          const idxA = allProviderIds.indexOf(a)
+          const idxB = allProviderIds.indexOf(b)
+          const distA = (idxA - lastIdx + N) % N
+          const distB = (idxB - lastIdx + N) % N
+          const weightA = distA === 0 ? N : distA
+          const weightB = distB === 0 ? N : distB
+          return weightA - weightB
+        })
+      } else {
+        providerIds.sort()
       }
 
       // 组内各个提供商内部候选模型排序
@@ -519,12 +529,12 @@ export async function backfillTier1FromTier2(
       }
 
       let hasMoreToTest = true
-      // 一轮一轮地遍历
+      // 一轮一轮地交叉轮抽与并发测试
       while (currentSlotsNeeded > 0 && hasMoreToTest) {
         hasMoreToTest = false
-        const roundTested: Array<{ ref: TierModelRef; metric: ProbeMetric }> = []
+        const roundToTest: typeof candidates = []
 
-        // 各个提供商轮抽模型交叉测试
+        // 各个提供商轮抽 1 个候选模型
         for (const pid of providerIds) {
           const idx = providerPointers[pid]
           const list = providerToModels[pid]
@@ -532,21 +542,33 @@ export async function backfillTier1FromTier2(
             hasMoreToTest = true
             const cand = list[idx]
             providerPointers[pid] = idx + 1
-
-            // 游标持久化位置：记录当前探测的最新提供商位置
-            storage.lastCursorProviderId = pid
-
-            // 执行轻量探测
-            const liveModel = availableMap.get(cand.fullId)
-            if (liveModel) {
-              const metric = await runSingleModelProbe(env, liveModel.provider, liveModel.modelId)
-              storage.probeStats[cand.fullId] = metric
-              roundTested.push({ ref: cand, metric })
-            }
+            roundToTest.push(cand)
           }
         }
 
-        // 3. 每一轮探测结束，选取本轮探测成功的可用模型按延迟由低到高晋升进入第一梯队
+        if (roundToTest.length === 0) break
+
+        // 并发探测本轮抽取的候选模型
+        const probeResults = await Promise.all(
+          roundToTest.map(async (cand) => {
+            const liveModel = availableMap.get(cand.fullId)
+            if (!liveModel) return null
+            const metric = await runSingleModelProbe(env, liveModel.provider, liveModel.modelId)
+            return { cand, metric }
+          })
+        )
+
+        const roundTested: Array<{ ref: TierModelRef; metric: ProbeMetric }> = []
+        for (const res of probeResults) {
+          if (res) {
+            storage.probeStats[res.cand.fullId] = res.metric
+            roundTested.push({ ref: res.cand, metric: res.metric })
+            // 记录当前已测试的提供商游标
+            storage.lastCursorProviderId = res.cand.providerId
+          }
+        }
+
+        // 3. 选取本轮探测成功的可用模型按延迟由低到高（最快的）晋升进入第一梯队
         const successCandidates = roundTested.filter((item) => item.metric.success)
         if (successCandidates.length > 0) {
           successCandidates.sort((a, b) => a.metric.latency - b.metric.latency)
@@ -564,6 +586,8 @@ export async function backfillTier1FromTier2(
 
             currentSlotsNeeded--
           }
+
+          // 只要缺额被补满，立即停止海选
           if (currentSlotsNeeded <= 0) {
             break
           }

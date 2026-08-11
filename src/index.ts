@@ -30,6 +30,7 @@ import {
   handleClearProviderModels,
   handleUpdateModelStatus,
   handleGetTiers,
+  handleTestBlockedModels,
 } from './admin'
 import { renderHomePage, renderLoginPage, renderAdminPage } from './pages'
 import { seedInitialData, getSession } from './storage'
@@ -112,6 +113,7 @@ app.patch('/admin/api/proxy-keys/:id', handleUpdateProxyKey)
 app.get('/admin/api/tiers', handleGetTiers)
 app.post('/admin/api/probe', handleRunProbe)
 app.post('/admin/api/reset-cooldowns', handleResetCooldowns)
+app.post('/admin/api/test-blocked-models', handleTestBlockedModels)
 
 // 提供商模型配套操作
 app.post('/admin/api/providers/:id/fetch-models', handleFetchUpstreamModels)

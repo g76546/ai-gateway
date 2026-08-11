@@ -6,6 +6,8 @@ export interface Model {
   cooldownUntil?: number | null
   permanentlyDisabled?: boolean
   disabledReason?: string | null
+  lastPermTestAt?: number
+  permTestFailCount?: number
 }
 
 export interface ApiKeyEntry {

@@ -683,6 +683,8 @@ export async function handleUpdateModelStatus(c: Context<{ Bindings: Env }>) {
       copy.permanentlyDisabled = false
       copy.disabledReason = null
       copy.failureCount = 0
+      copy.permTestFailCount = 0
+      copy.lastPermTestAt = Date.now()
       copy.cooldownUntil = null
     }
     return copy
@@ -704,4 +706,111 @@ export async function handleGetTiers(c: Context<{ Bindings: Env }>) {
     success: true,
     data: tierData,
   })
+}
+
+// ===== 手动批量交叉交替测试封禁模型 =====
+export async function handleTestBlockedModels(c: Context<{ Bindings: Env }>) {
+  if (isProbeRunning) {
+    return c.json<ApiResponse>({
+      success: false,
+      message: '已有探测任务正在运行中，请稍后再试',
+    }, 429)
+  }
+
+  isProbeRunning = true
+  try {
+    const providers = await getProviders(c.env)
+
+    const blockedToTest: Array<{ provider: Provider; model: Model }> = []
+    for (const p of providers) {
+      if (!p.enabled) continue
+      const enabledKeys = p.apiKeys.filter((k) => k.enabled)
+      if (!isOpenCodeProvider(p.id) && enabledKeys.length === 0) continue
+
+      for (const m of p.models) {
+        if (m.enabled !== false && m.permanentlyDisabled) {
+          blockedToTest.push({ provider: p, model: m })
+        }
+      }
+    }
+
+    if (blockedToTest.length === 0) {
+      return c.json<ApiResponse>({
+        success: true,
+        message: '当前没有任何处于永久封禁状态的模型',
+        data: { testedCount: 0, unblockedCount: 0, unblockedModelIds: [] },
+      })
+    }
+
+    // 按 Provider 分组
+    const providerMap = new Map<string, Array<{ provider: Provider; model: Model }>>()
+    for (const item of blockedToTest) {
+      if (!providerMap.has(item.provider.id)) {
+        providerMap.set(item.provider.id, [])
+      }
+      providerMap.get(item.provider.id)!.push(item)
+    }
+
+    const providerIds = Array.from(providerMap.keys()).sort()
+    const pointers: Record<string, number> = {}
+    for (const pid of providerIds) pointers[pid] = 0
+
+    // 交叉轮抽 Round-Robin
+    const roundOrder: Array<{ provider: Provider; model: Model }> = []
+    let hasMore = true
+    while (hasMore) {
+      hasMore = false
+      for (const pid of providerIds) {
+        const list = providerMap.get(pid)!
+        const idx = pointers[pid]
+        if (idx < list.length) {
+          hasMore = true
+          roundOrder.push(list[idx])
+          pointers[pid] = idx + 1
+        }
+      }
+    }
+
+    let testedCount = 0
+    let unblockedCount = 0
+    const unblockedModelIds: string[] = []
+
+    const BATCH_SIZE = 5
+    for (let i = 0; i < roundOrder.length; i += BATCH_SIZE) {
+      const chunk = roundOrder.slice(i, i + BATCH_SIZE)
+      await Promise.all(
+        chunk.map(async ({ provider, model }) => {
+          testedCount++
+          const enabledKeys = provider.apiKeys.filter((k) => k.enabled)
+          const apiKey = enabledKeys[0]?.key || ''
+          const testRes = isOpenCodeProvider(provider.id)
+            ? await testOpenCodeModel(provider.baseUrl, enabledKeys, model.id, resolveOpenCodeUrls(c.env))
+            : await testModelConnection(provider.baseUrl, apiKey, model.id, provider.apiType)
+
+          await applyModelProbeResult(
+            c.env,
+            provider.id,
+            model.id,
+            testRes.success,
+            testRes.statusCode || (testRes.success ? 200 : 500),
+            testRes.message || ''
+          )
+
+          if (testRes.success) {
+            unblockedCount++
+            unblockedModelIds.push(`${provider.id}/${model.id}`)
+          }
+        })
+      )
+    }
+
+    const unblockedDetail = unblockedCount > 0 ? `解封模型：[${unblockedModelIds.join(', ')}]` : '暂无模型解封'
+    return c.json<ApiResponse>({
+      success: true,
+      message: `批量交叉测试完成！共测试 ${testedCount} 个封禁模型，成功解封 ${unblockedCount} 个模型。${unblockedDetail}`,
+      data: { testedCount, unblockedCount, unblockedModelIds },
+    })
+  } finally {
+    isProbeRunning = false
+  }
 }

@@ -86,6 +86,8 @@ export function deduplicateAndClassifyModels(modelsInput: unknown): Model[] {
     let cooldownUntil: number | null = null
     let permanentlyDisabled = false
     let disabledReason: string | null = null
+    let lastPermTestAt: number | undefined = undefined
+    let permTestFailCount: number | undefined = undefined
 
     if (typeof item === 'string') {
       id = item.trim()
@@ -108,6 +110,12 @@ export function deduplicateAndClassifyModels(modelsInput: unknown): Model[] {
       if (typeof obj.disabledReason === 'string') {
         disabledReason = obj.disabledReason
       }
+      if (typeof obj.lastPermTestAt === 'number') {
+        lastPermTestAt = obj.lastPermTestAt
+      }
+      if (typeof obj.permTestFailCount === 'number') {
+        permTestFailCount = obj.permTestFailCount
+      }
     }
 
     if (!id || seenIds.has(id)) continue
@@ -121,6 +129,8 @@ export function deduplicateAndClassifyModels(modelsInput: unknown): Model[] {
       cooldownUntil,
       permanentlyDisabled,
       disabledReason,
+      lastPermTestAt,
+      permTestFailCount,
     })
   }
 

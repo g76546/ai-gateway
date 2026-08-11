@@ -30,6 +30,15 @@ export async function saveTierStorage(env: Env, data: TierStorage): Promise<void
 }
 
 /**
+ * 计算动态复测间隔 (毫秒)
+ * 24h * (permTestFailCount + 1)，上限 72h (3天)
+ */
+export function getPermTestIntervalMs(permTestFailCount: number = 0): number {
+  const hours = Math.min(24 * (permTestFailCount + 1), 72)
+  return hours * 60 * 60 * 1000
+}
+
+/**
  * 按照规则更新提供商模型的可连接性/冷却/失效状态
  */
 export async function applyModelProbeResult(
@@ -54,9 +63,19 @@ export async function applyModelProbeResult(
         cooldownUntil: null,
         failureCount: 0,
         permanentlyDisabled: false,
+        permTestFailCount: 0,
+        lastPermTestAt: Date.now(),
         disabledReason: undefined,
       }
     } else {
+      if (m.permanentlyDisabled) {
+        return {
+          ...m,
+          lastPermTestAt: Date.now(),
+          permTestFailCount: (m.permTestFailCount || 0) + 1,
+        }
+      }
+
       const lowerMsg = (errorMsg || '').toLowerCase()
       const isBadRequestParam = statusCode === 400 && (
         lowerMsg.includes('parameter') ||
@@ -72,6 +91,8 @@ export async function applyModelProbeResult(
           ...m,
           permanentlyDisabled: true,
           disabledReason: permReason,
+          lastPermTestAt: Date.now(),
+          permTestFailCount: 0,
         }
       }
 
@@ -86,6 +107,8 @@ export async function applyModelProbeResult(
           failureCount: newFailures,
           permanentlyDisabled: true,
           disabledReason: '探测连续失败达到3次，已标记永久失效',
+          lastPermTestAt: Date.now(),
+          permTestFailCount: 0,
         }
       }
 
@@ -528,13 +551,37 @@ export async function backfillTier1FromTier2(
         providerPointers[pid] = 0
       }
 
+      // 收集达到复测间隔的已封禁模型（每轮海选附带抽测最多 1~2 个）
+      const eligibleBlocked: Array<{ cand: TierModelRef; provider: Provider }> = []
+      const now = Date.now()
+      for (const p of allProviders) {
+        if (!p.enabled) continue
+        const enabledKeys = p.apiKeys.filter((k) => k.enabled)
+        if (!isOpenCodeProvider(p.id) && enabledKeys.length === 0) continue
+
+        for (const m of p.models) {
+          if (m.enabled !== false && m.permanentlyDisabled) {
+            const lastTested = m.lastPermTestAt || 0
+            const failCount = m.permTestFailCount || 0
+            const interval = getPermTestIntervalMs(failCount)
+            if (now - lastTested >= interval) {
+              eligibleBlocked.push({
+                cand: { providerId: p.id, modelId: m.id, fullId: `${p.id}/${m.id}`, addedAt: Date.now() },
+                provider: p,
+              })
+            }
+          }
+        }
+      }
+      let blockedPointer = 0
+
       let hasMoreToTest = true
       // 一轮一轮地交叉轮抽与并发测试
       while (currentSlotsNeeded > 0 && hasMoreToTest) {
         hasMoreToTest = false
         const roundToTest: typeof candidates = []
 
-        // 各个提供商轮抽 1 个候选模型
+        // 各个提供商轮抽 1 个正常候选模型
         for (const pid of providerIds) {
           const idx = providerPointers[pid]
           const list = providerToModels[pid]
@@ -544,6 +591,21 @@ export async function backfillTier1FromTier2(
             providerPointers[pid] = idx + 1
             roundToTest.push(cand)
           }
+        }
+
+        // 附带抽测最多 1~2 个符合复测间隔的封禁模型（以正常模型为主）
+        let attachedBlockedCount = 0
+        while (blockedPointer < eligibleBlocked.length && attachedBlockedCount < 2) {
+          const blockedItem = eligibleBlocked[blockedPointer++]
+          roundToTest.push(blockedItem.cand)
+          if (!availableMap.has(blockedItem.cand.fullId)) {
+            availableMap.set(blockedItem.cand.fullId, {
+              provider: blockedItem.provider,
+              modelId: blockedItem.cand.modelId,
+              fullId: blockedItem.cand.fullId,
+            })
+          }
+          attachedBlockedCount++
         }
 
         if (roundToTest.length === 0) break

@@ -636,11 +636,16 @@ ${H('管理')}
 
       <section id="overview" class="admin-overview" aria-labelledby="admin-title">
         <div class="admin-heading">
-          <div><p class="eyebrow"><span aria-hidden="true"></span>GATEWAY STATUS</p><h1 id="admin-title">管理控制台</h1><p>配置提供商、模型与客户端访问凭据。变更将写入 Cloudflare KV。</p></div>
+          <div class="admin-heading__title">
+            <p class="eyebrow"><span aria-hidden="true"></span>GATEWAY STATUS</p>
+            <h1 id="admin-title">管理控制台</h1>
+            <p>配置提供商、模型与客户端访问凭据。变更将写入 Cloudflare KV。</p>
+          </div>
           <div class="admin-heading__actions">
-            <button id="btn-probe" class="btn btn-s" onclick="triggerProbe()"><i class="fas fa-radar" aria-hidden="true"></i>触发探测任务</button>
-            <button class="btn btn-s" onclick="resetCooldowns()"><i class="fas fa-undo" aria-hidden="true"></i>一键重置冷却模型</button>
-            <a href="/" class="btn btn-s"><i class="fas fa-external-link-alt" aria-hidden="true"></i>查看模型列表</a>
+            <button id="btn-probe" class="btn btn-p btn-s" onclick="triggerProbe()"><i class="fas fa-radar" aria-hidden="true"></i>触发探测任务</button>
+            <button class="btn btn-s" onclick="testAllBlockedModels()"><i class="fas fa-unlock-alt" aria-hidden="true"></i>批量复测封禁</button>
+            <button class="btn btn-s" onclick="resetCooldowns()"><i class="fas fa-undo" aria-hidden="true"></i>重置冷却模型</button>
+            <a href="/" class="btn btn-gh btn-s"><i class="fas fa-external-link-alt" aria-hidden="true"></i>查看模型列表</a>
           </div>
         </div>
         <div class="admin-metrics" aria-label="配置统计">
@@ -722,9 +727,9 @@ ${H('管理')}
 
             return `
           <article class="pi ${pStatusClass}" data-id="${escapePageHtml(p.id)}">
-            <div class="ps" onclick="tog('${p.id}')" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();tog('${p.id}')}" aria-controls="dt-${escapePageHtml(p.id)}">
+            <div class="ps" onclick="togBtn(this)" data-pid="${escapePageHtml(p.id)}" role="button" tabindex="0" onkeydown="togKey(event,this)" aria-controls="dt-${escapePageHtml(p.id)}">
               <div class="l"><i class="fas fa-chevron-right provider-chevron" aria-hidden="true" id="ch-${escapePageHtml(p.id)}"></i><span class="provider-avatar" aria-hidden="true">${escapePageHtml(p.name.charAt(0).toUpperCase() || 'A')}</span><div><h3>${escapePageHtml(p.name)}</h3><div class="pu"><code>${escapePageHtml(p.id)}</code><span>${(p.apiType||'openai')==='anthropic'?'Anthropic':'OpenAI'}</span><span>${p.apiKeys.length} Keys</span><span>${p.models.length} 模型</span>${statusChipsHtml}</div></div></div>
-              <div class="fc fx-s0" onclick="event.stopPropagation()"><label class="tg"><input type="checkbox" ${p.enabled?'checked':''} id="en-${escapePageHtml(p.id)}" onchange="togglePb('${p.id}',this.checked)" aria-label="启用 ${escapePageHtml(p.name)}"><span class="sl"></span></label><span class="bd ${p.enabled?'bd-on':'bd-off'}">${p.enabled?'已启用':'未启用'}</span></div>
+              <div class="fc fx-s0" onclick="event.stopPropagation()"><label class="tg"><input type="checkbox" ${p.enabled?'checked':''} id="en-${escapePageHtml(p.id)}" onchange="togglePbBtn(this)" data-pid="${escapePageHtml(p.id)}" aria-label="启用 ${escapePageHtml(p.name)}"><span class="sl"></span></label><span class="bd ${p.enabled?'bd-on':'bd-off'}">${p.enabled?'已启用':'未启用'}</span></div>
             </div>
             <div class="pd" id="dt-${escapePageHtml(p.id)}">
               <div class="detail-heading"><div><h3>编辑 ${escapePageHtml(p.name)}</h3><p>修改暂存在内存中，点击顶部【统一保存】或下方【暂存更改】后生效。</p></div><span class="protocol-chip">${(p.apiType||'openai')==='anthropic'?'ANTHROPIC':'OPENAI'}</span></div>
@@ -827,7 +832,7 @@ ${H('管理')}
         <div class="section-heading section-heading--admin"><div><h2 id="proxy-keys-title">转发 Key</h2><p>客户端使用这些 Key 访问统一的 <code>/v1</code> 接口。</p></div><button class="btn btn-p" onclick="genKey()"><i class="fas fa-plus" aria-hidden="true"></i>生成转发 Key</button></div>
         <div class="key-list">
           ${proxyKeys.length===0?'<div class="empty-state"><i class="fas fa-key" aria-hidden="true"></i><h3>暂无转发 Key</h3><p>生成一个 Key 后，客户端才能访问网关。</p><button class="btn btn-p" onclick="genKey()">生成转发 Key</button></div>':''}
-          ${proxyKeys.map(k=>`<article class="ki" data-id="${escapePageHtml(k.id)}"><div class="key-main"><span class="key-icon" aria-hidden="true"><i class="fas fa-key"></i></span><div><div class="kv"><span id="kv-${escapePageHtml(k.id)}" data-full="${escapePageHtml(k.key)}" data-vis="0">${escapePageHtml(k.key.length>12?k.key.substring(0,8)+'*****'+k.key.substring(k.key.length-4):k.key)}</span><button class="icon-btn" onclick="toggleKeyVis('${k.id}')" title="显示或隐藏" aria-label="显示或隐藏 Key"><i class="far fa-eye" aria-hidden="true"></i></button><button class="icon-btn" onclick="copyText(this)" data-copy="${escapePageHtml(k.key)}" title="复制" aria-label="复制 Key"><i class="far fa-copy" aria-hidden="true"></i></button></div><div class="key-meta"><h3>${escapePageHtml(k.name)}</h3><span class="key-meta__sep" aria-hidden="true">-</span><p>创建于 ${new Date(k.createdAt).toLocaleDateString()} · ${k.expiresAt?'有效至 '+new Date(k.expiresAt).toLocaleDateString():'永久有效'}</p></div></div></div><div class="key-actions"><label class="tg"><input type="checkbox" ${k.enabled?'checked':''} onchange="toggleProxyKey('${k.id}',this.checked)" aria-label="启用 ${escapePageHtml(k.name)}"><span class="sl"></span></label><span class="bd ${k.enabled?'bd-on':'bd-off'}">${k.enabled?'已启用':'已禁用'}</span><button class="bd bd-del" onclick="rmKey('${k.id}')"><i class="fas fa-trash" aria-hidden="true"></i>删除</button></div></article>`).join('')}
+          ${proxyKeys.map(k=>`<article class="ki" data-id="${escapePageHtml(k.id)}"><div class="key-main"><span class="key-icon" aria-hidden="true"><i class="fas fa-key"></i></span><div><div class="kv"><span id="kv-${escapePageHtml(k.id)}" data-full="${escapePageHtml(k.key)}" data-vis="0">${escapePageHtml(k.key.length>12?k.key.substring(0,8)+'*****'+k.key.substring(k.key.length-4):k.key)}</span><button class="icon-btn" onclick="toggleKeyVisBtn(this)" data-id="${escapePageHtml(k.id)}" title="显示或隐藏" aria-label="显示或隐藏 Key"><i class="far fa-eye" aria-hidden="true"></i></button><button class="icon-btn" onclick="copyText(this)" data-copy="${escapePageHtml(k.key)}" title="复制" aria-label="复制 Key"><i class="far fa-copy" aria-hidden="true"></i></button></div><div class="key-meta"><h3>${escapePageHtml(k.name)}</h3><span class="key-meta__sep" aria-hidden="true">-</span><p>创建于 ${new Date(k.createdAt).toLocaleDateString()} · ${k.expiresAt?'有效至 '+new Date(k.expiresAt).toLocaleDateString():'永久有效'}</p></div></div></div><div class="key-actions"><label class="tg"><input type="checkbox" ${k.enabled?'checked':''} onchange="toggleProxyKeyBtn(this)" data-id="${escapePageHtml(k.id)}" aria-label="启用 ${escapePageHtml(k.name)}"><span class="sl"></span></label><span class="bd ${k.enabled?'bd-on':'bd-off'}">${k.enabled?'已启用':'已禁用'}</span><button class="bd bd-del" onclick="rmKeyBtn(this)" data-id="${escapePageHtml(k.id)}"><i class="fas fa-trash" aria-hidden="true"></i>删除</button></div></article>`).join('')}
         </div>
       </section>
 
@@ -2356,6 +2361,28 @@ async function resetCooldowns() {
       renderProviderList();
     } else {
       aM('重置冷却失败：' + (data.message || '未知错误'), 'error');
+    }
+  } catch (err) {
+    aM('请求网络异常：' + ((err && err.message) || String(err)), 'error');
+  }
+}
+
+async function testAllBlockedModels() {
+  if (!(await cM('确定要对所有处于【永久封禁】状态的模型执行批量交叉复测？系统将按提供商交替轮抽并发探针测试，若测试响应连通，模型将自动解封恢复可用。'))) return;
+  toast('正在交叉轮抽并发复测所有封禁模型，请稍候...', 'info');
+  try {
+    var res = await fetch('/admin/api/test-blocked-models', { method: 'POST' });
+    var data = await res.json();
+    if (data.success) {
+      aM(data.message || '批量交叉复测完成！', 'success');
+      var pRes = await fetch('/admin/api/providers');
+      var pData = await pRes.json();
+      if (pData.success && pData.data) {
+        draftProviders = pData.data;
+      }
+      renderProviderList();
+    } else {
+      aM('批量复测失败：' + (data.message || '未知错误'), 'error');
     }
   } catch (err) {
     aM('请求网络异常：' + ((err && err.message) || String(err)), 'error');

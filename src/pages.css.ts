@@ -342,19 +342,27 @@ label, legend { color: var(--color-ink-2); font-size: var(--text-xs); font-weigh
 .admin-topbar nav a { min-height: var(--control-h); padding-inline: var(--space-xs); display: inline-flex; align-items: center; color: var(--color-muted); font-size: var(--text-xs); font-weight: 600; text-decoration: none; white-space: nowrap; }
 .admin-content { width: 100%; max-width: 82rem; margin-inline: auto; padding: var(--space-lg) var(--space-sm) var(--space-3xl); }
 .admin-overview { margin-block-end: var(--space-xl); }
-.admin-heading { margin-block-end: var(--space-lg); display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-md); align-items: end; }
-.admin-heading h1 { font-size: clamp(2rem, 5vw, 3rem); }
-.admin-heading > div > p:not(.eyebrow) { max-width: 65ch; margin-block-start: var(--space-2xs); color: var(--color-muted); }
-.admin-heading__actions { display: flex; flex-wrap: wrap; gap: var(--space-2xs); }
-.admin-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border: .0625rem solid var(--color-rule); border-radius: var(--radius-panel); background: var(--color-paper); }
-.admin-metrics > div { min-width: 0; padding: var(--space-sm); border-inline-end: .0625rem solid var(--color-rule); border-block-end: .0625rem solid var(--color-rule); }
-.admin-metrics > div:nth-child(even) { border-inline-end: 0; }
-.admin-metrics > div:nth-child(n+3) { border-block-end: 0; }
-.admin-metrics > div > span:not(.status-dot) { color: var(--color-ink); font-family: var(--font-display); font-size: var(--text-xl); font-weight: 600; line-height: 1; }
-.admin-metrics p { margin-block-start: var(--space-xs); color: var(--color-ink); font-weight: 600; }
-.admin-metrics small { color: var(--color-muted); font-size: var(--text-xs); }
-.workspace-section { margin-block-start: var(--space-xl); }
-.section-heading--admin { padding-block-end: var(--space-md); border-block-end: .0625rem solid var(--color-rule); }
+.admin-heading { margin-block-end: var(--space-xl); display: flex; flex-direction: column; gap: var(--space-sm); }
+@media (min-width: 52rem) {
+  .admin-heading { flex-direction: row; align-items: flex-end; justify-content: space-between; gap: var(--space-md); }
+}
+.admin-heading > div:first-child { flex: 1 1 18rem; min-width: 0; }
+.admin-heading h1 { font-size: clamp(1.75rem, 3.5vw, 2.25rem); font-weight: 700; line-height: 1.25; margin-block: var(--space-3xs) var(--space-2xs); letter-spacing: -.02em; word-break: keep-all; overflow-wrap: break-word; white-space: normal; }
+.admin-heading > div > p:not(.eyebrow) { max-width: 65ch; margin-block-start: var(--space-3xs); color: var(--color-muted); font-size: var(--text-xs); line-height: 1.5; }
+.admin-heading__actions { flex: 0 0 auto; display: flex; flex-wrap: wrap; gap: var(--space-2xs); align-items: center; }
+
+.admin-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-xs); border: none; background: transparent; }
+@media (min-width: 48rem) {
+  .admin-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+.admin-metrics > div { min-width: 0; padding: var(--space-sm) var(--space-md); border: .0625rem solid var(--color-rule); border-radius: var(--radius-panel); background: var(--color-paper); box-shadow: 0 1px 2px rgba(0,0,0,0.03); transition: border-color var(--dur-fast), transform var(--dur-fast); }
+.admin-metrics > div:hover { border-color: var(--color-rule-2); }
+.admin-metrics > div > span:not(.status-dot) { color: var(--color-ink); font-family: var(--font-display); font-size: var(--text-2xl); font-weight: 700; line-height: 1.1; }
+.admin-metrics p { margin-block-start: var(--space-xs); color: var(--color-ink); font-weight: 600; font-size: var(--text-sm); }
+.admin-metrics small { color: var(--color-muted); font-size: var(--text-xs); margin-block-start: 2px; display: block; }
+.workspace-section { margin-block-start: var(--space-2xl); }
+.section-heading--admin { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-sm); padding-block-end: var(--space-sm); border-block-end: .0625rem solid var(--color-rule); }
+.section-heading--admin > div { flex: 1 1 12rem; min-width: 0; }
 .section-heading--admin code { font-size: var(--text-xs); }
 .af-w { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-sm); margin-block-end: var(--space-md); }
 .add-form-panel, .mdl-list-panel { min-width: 0; padding: var(--space-md); border: .0625rem solid var(--color-rule-2); border-radius: var(--radius-panel); background: var(--color-paper-2); }
@@ -490,12 +498,6 @@ label, legend { color: var(--color-ink-2); font-size: var(--text-xs); font-weigh
   .fr { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .fr3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .admin-content { padding-inline: var(--space-lg); }
-  .admin-heading, .section-heading--admin { grid-template-columns: minmax(0, 1fr) auto; }
-  .admin-heading__actions { justify-content: flex-end; }
-  .admin-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  .admin-metrics > div { border-block-end: 0; }
-  .admin-metrics > div:nth-child(even) { border-inline-end: .0625rem solid var(--color-rule); }
-  .admin-metrics > div:last-child { border-inline-end: 0; }
   .panel-actions, .detail-actions { flex-direction: row; align-items: center; justify-content: space-between; }
   .ki { flex-direction: row; align-items: center; justify-content: space-between; }
   .grid-2-gap6 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -919,19 +921,20 @@ label, legend { color: var(--color-ink-2); font-size: var(--text-xs); font-weigh
 
   /* Admin overview and heading elements */
   .admin-overview {
-    margin-bottom: var(--space-xs) !important;
+    margin-bottom: var(--space-md) !important;
   }
   .admin-content {
-    padding: var(--space-3xs) var(--space-3xs) var(--space-lg) !important;
+    padding: var(--space-xs) var(--space-xs) var(--space-xl) !important;
   }
   .admin-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: var(--space-xs) !important;
   }
   .admin-metrics > div {
-    padding: var(--space-3xs) !important;
+    padding: var(--space-xs) var(--space-sm) !important;
   }
   .admin-metrics > div > span:not(.status-dot) {
-    font-size: 1.2rem !important;
+    font-size: 1.4rem !important;
   }
 
   /* Optimize to single compact row layout for inputs and buttons inside Provider Details lists */
